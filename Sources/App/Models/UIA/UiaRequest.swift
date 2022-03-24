@@ -4,7 +4,7 @@
 //
 //  Created by Charles Wright on 3/22/22.
 //
-
+/* // Moved to UIA.swift
 import Vapor
 
 protocol UiaAuthDict: Content {
@@ -19,3 +19,4 @@ struct UiaRequest: Content {
     }
     var auth: AuthDict
 }
+*/

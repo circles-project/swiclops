@@ -4,7 +4,7 @@
 //
 //  Created by Charles Wright on 3/22/22.
 //
-
+/* // Moved to UIA.swift
 import Vapor
 
 struct UiaFlow: Content {
@@ -20,3 +20,4 @@ struct UiaResponse: Content {
     
     var session: String
 }
+*/

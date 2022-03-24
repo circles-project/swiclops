@@ -22,6 +22,12 @@ public func configure(_ app: Application) throws {
 
     // Use Vapor's built-in passwords with Bcrypt
     app.passwords.use(.bcrypt)
+    
+    var uiaController = UiaController(app: app,
+                                      config: .init(homeserver: URL(string: "https://kombucha.social/")!,
+                                                    routes: []),
+                                      checkers: [PasswordAuthChecker(app: app)]
+    )
 
     // register routes
     try routes(app)
