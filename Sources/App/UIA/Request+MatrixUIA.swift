@@ -34,12 +34,14 @@ extension Request {
             self.session = nil
         }
         
-        public func connectSession(sessionId: String) {
-            if let _ = self.session {
-                return
+        public func connectSession(sessionId: String) -> Session {
+            if let existingSession = self.session {
+                return existingSession
             }
             //self.session = .init(req: self.req, sessionId: sessionId)
-            self.req.storage[Key.self] = Session(req: self.req, sessionId: sessionId)
+            let newSession = Session(req: self.req, sessionId: sessionId)
+            self.req.storage[Key.self] = newSession
+            return newSession
         }
         
         struct Key: StorageKey {
