@@ -1,7 +1,7 @@
 # Support for Matrix User-Interactive Auth (UIA)
 
 The files in this folder add (very basic) support to Vapor for tracking
-Matrix user-interactive auth (UIA) sessions.
+Matrix user-interactive authentication (UIA) sessions.
 
 Unlike Vapor's standard `Session`s, Matrix's UIA sessions do not use
 cookies.  Instead, they rely on a special `session` string inside the
