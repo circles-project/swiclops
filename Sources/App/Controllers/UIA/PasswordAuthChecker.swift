@@ -123,9 +123,11 @@ struct PasswordAuthChecker: AuthChecker {
         // Otherwise,
         //   Hash the password
         let digest = try await req.password.async.hash(password)
-        //   Save the hash in our session state
-        // FIXME How do we find the session state?
-        // FIXME Actually save the digest into the session state
+        //   Connect to our persistent UIA session state
+        let session = req.uia.connectSession(sessionId: auth.session)
+        //   Actually save the digest into the session state
+        session.setData(for: AUTH_TYPE_ENROLL+".digest", value: digest)
+
         return true
     }
     
@@ -134,9 +136,18 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, userId: String) async throws {
-        // Verify that this request is for us
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            throw Abort(.badRequest)
+        }
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
         // Find the hashed password in the session state
+        guard let digest = session.getData(for: AUTH_TYPE_ENROLL+".digest") else {
+            throw Abort(.internalServerError)
+        }
         // Save the new hash in the database
+        let record = PasswordHash(userId: userId, hashFunc: "bcrypt", digest: digest)
+        try await record.create(on: req.db)
     }
     
     func isEnrolled(userId: String, authType: String) async -> Bool {
