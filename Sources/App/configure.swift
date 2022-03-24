@@ -20,7 +20,8 @@ public func configure(_ app: Application) throws {
 
     app.views.use(.leaf)
 
-    
+    // Use Vapor's built-in passwords with Bcrypt
+    app.passwords.use(.bcrypt)
 
     // register routes
     try routes(app)

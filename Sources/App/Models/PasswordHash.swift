@@ -17,8 +17,8 @@ final class PasswordHash: Model, Content {
     @Field(key: "hash_func")
     var hashFunc: String
     
-    @Field(key: "hashed_password")
-    var hashed: String
+    @Field(key: "digest")
+    var digest: String
     
     // When this password was created.
     @Timestamp(key: "created_at", on: .create)
@@ -30,10 +30,10 @@ final class PasswordHash: Model, Content {
     
     init() { }
     
-    init(userId: String, hashFunc: String, hashed: String) {
+    init(userId: String, hashFunc: String, digest: String) {
         self.id = userId
         self.hashFunc = hashFunc
-        self.hashed = hashed
+        self.digest = digest
     }
     
 }

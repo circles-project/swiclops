@@ -16,7 +16,7 @@ struct UiaResponse: Content {
     
     var completed: [String]?
     
-    var params: [String: [String: Any]]
+    var params: [String: [String: String]]
     
     var session: String
 }
