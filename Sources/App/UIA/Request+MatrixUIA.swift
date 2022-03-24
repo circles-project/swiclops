@@ -34,14 +34,26 @@ extension Request {
             self.session = nil
         }
         
-        public mutating func connectSession(sessionId: String) {
+        public func connectSession(sessionId: String) {
             if let _ = self.session {
                 return
             }
-            self.session = .init(req: self.req, sessionId: sessionId)
+            //self.session = .init(req: self.req, sessionId: sessionId)
+            self.req.storage[Key.self] = Session(req: self.req, sessionId: sessionId)
         }
         
-        var session: Session?
+        struct Key: StorageKey {
+            typealias Value = MatrixUIA.Session
+        }
+        
+        var session: Session? {
+            get {
+                self.req.storage[Key.self]
+            }
+            set(newValue) {
+                self.req.storage[Key.self] = newValue
+            }
+        }
         
         struct Session {
             private var req: Request
