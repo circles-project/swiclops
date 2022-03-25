@@ -41,7 +41,13 @@ struct DummyAuthChecker: AuthChecker {
         // Do nothing
     }
     
-    func isEnrolled(userId: String, authType: String) async -> Bool {
+    func isUserEnrolled(userId: String, authType: String) async -> Bool {
+        // Everyone can do Dummy auth.  It's auth for dummies!
+        return true
+    }
+    
+    func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
+        // If Dummy is enabled by the config, definitely include it in the advertised flow
         return true
     }
     

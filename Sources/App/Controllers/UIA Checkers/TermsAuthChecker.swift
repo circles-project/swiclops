@@ -38,14 +38,16 @@ struct TermsAuthChecker: AuthChecker {
     }
     
     var policies: [String:Policy]
+    var app: Application
     
-    init() {
+    init(application: Application) {
         let privacy = Policy(version: "1.0",
                              en: .init(name: "Privacy Policy",
                                        url: URL(string: "https://www.example.com/privacy/en/1.0.html")!
                                        )
                              )
         self.policies = [ "privacy": privacy ]
+        self.app = application
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -94,8 +96,38 @@ struct TermsAuthChecker: AuthChecker {
         try await self._updateDatabase(for: req, userId: userId)
     }
     
-    func isEnrolled(userId: String, authType: String) async -> Bool {
+    func isUserEnrolled(userId: String, authType: String) async -> Bool {
         return true
+    }
+    
+    func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
+        // Terms auth is one of the few that may not always be required
+        // Query the database to see whether the user has already accepted the current terms
+        
+        for (name,policy) in self.policies {
+            let version = policy.version
+              // Fricking stupid POS Swift compiled this once, and now can't do it again.  Argh!
+            try await AcceptedTerms.query(on: request.db)
+                                   .filter(\.$user == userId)
+                                   .filter(\.$policy == name)
+                                   .filter(\.$version >= version)
+                                   .first()
+
+            try await self.app.db.query(AcceptedTerms.self)
+                .filter(\.$user == userId)
+                .filter(\.$policy == name)
+                .filter(\.$version >= version)
+                .first()
+            
+            guard match != nil else {
+                // User is required to accept current terms
+                return true
+            }
+
+        }
+
+        // User is currently up-to-date and doesn't need to accept anything new
+        return false
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {

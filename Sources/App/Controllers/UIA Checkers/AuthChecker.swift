@@ -21,7 +21,9 @@ protocol AuthChecker {
 
     func onEnrolled(req: Request, userId: String) async throws -> Void
     
-    func isEnrolled(userId: String, authType: String) async -> Bool
+    func isUserEnrolled(userId: String, authType: String) async throws -> Bool
+    
+    func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool
     
     func onUnenrolled(req: Request, userId: String) async throws -> Void
 }

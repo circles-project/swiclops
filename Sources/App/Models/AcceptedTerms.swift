@@ -5,8 +5,8 @@
 //  Created by Charles Wright on 3/24/22.
 //
 
-import Vapor
 import Fluent
+import Vapor
 
 final class AcceptedTerms: Model, Content {
     static let schema = "accepted_terms"
@@ -28,9 +28,11 @@ final class AcceptedTerms: Model, Content {
     
     init() { }
     
-    init(policy: String, userId: String, version: String) {
+    init(id: UUID? = nil, policy: String, userId: String, version: String) {
+        self.id = id
         self.policy = policy
         self.userId = userId
         self.version = version
     }
 }
+

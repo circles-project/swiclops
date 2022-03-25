@@ -151,7 +151,7 @@ struct PasswordAuthChecker: AuthChecker {
         try await record.create(on: req.db)
     }
     
-    func isEnrolled(userId: String, authType: String) async -> Bool {
+    func isUserEnrolled(userId: String, authType: String) async -> Bool {
         // Query the database for any records with the given userId
         // If we found any valid records, return true
         // Otherwise return false
@@ -164,6 +164,11 @@ struct PasswordAuthChecker: AuthChecker {
         else {
             return false
         }
+    }
+    
+    func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
+        // Nobody gets out of doing password auth.  If it's in the config, keep it in the advertised flow(s).
+        return true
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
