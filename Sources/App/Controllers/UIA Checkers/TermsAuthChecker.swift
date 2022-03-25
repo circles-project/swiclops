@@ -21,39 +21,39 @@ public struct TermsUiaRequest: Content {
 struct TermsAuthChecker: AuthChecker {
     let AUTH_TYPE_TERMS = "m.login.terms"
     
-    public struct Params: Content {
-        struct Policy: Codable {
-            struct LocalizedPolicy: Codable {
-                var name: String
-                var url: URL
-            }
-            
-            var version: String
-            // FIXME this is the awfulest f**king kludge I think I've ever written
-            // But the Matrix JSON struct here is pretty insane
-            // Rather than make a proper dictionary, they throw the version in the
-            // same object with the other keys of what should be a natural dict.
-            // Parsing this properly is going to be something of a shitshow.
-            // But for now, we do it the quick & dirty way...
-            var en: LocalizedPolicy?
+    struct Policy: Codable {
+        struct LocalizedPolicy: Codable {
+            var name: String
+            var url: URL
         }
         
-        var policies: [String:Policy]
+        var version: String
+        // FIXME this is the awfulest f**king kludge I think I've ever written
+        // But the Matrix JSON struct here is pretty insane
+        // Rather than make a proper dictionary, they throw the version in the
+        // same object with the other keys of what should be a natural dict.
+        // Parsing this properly is going to be something of a shitshow.
+        // But for now, we do it the quick & dirty way...
+        var en: LocalizedPolicy?
     }
     
+    var policies: [String:Policy]
+    
+    init() {
+        let privacy = Policy(version: "1.0",
+                             en: .init(name: "Privacy Policy",
+                                       url: URL(string: "https://www.example.com/privacy/en/1.0.html")!
+                                       )
+                             )
+        self.policies = [ "privacy": privacy ]
+    }
     
     func getSupportedAuthTypes() -> [String] {
         [AUTH_TYPE_TERMS]
     }
     
     func getParams(req: Request, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
-        let privacyPolicy = Params.Policy(version: "1.0",
-                                          en: .init(name: "Privacy Policy",
-                                                    url: URL(string: "https://www.example.com/privacy/en/1.0.html")!
-                                                   )
-        )
-        let params = Params(policies: ["privacy": privacyPolicy])
-        return ["policies": AnyCodable(params.policies)] // FIXME this is horrible
+        return ["policies": AnyCodable(self.policies)]
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
@@ -63,22 +63,35 @@ struct TermsAuthChecker: AuthChecker {
             throw Abort(.badRequest)
         }
         
-        // FIXME Also mark in the database that this user has accepted the terms
-        //       Actually we can't do that right now -- We might not know the username
-        //       But we can store this info in the UIA session, and then we can
-        //       update the DB in the onLoggedIn / onEnrolled callback
-        
         return true
     }
     
+    func _updateDatabase(for req: Request, userId: String) async throws {
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            throw Abort(.badRequest)
+        }
+        //let sessionId = uiaRequest.auth.session
+        //let session = req.uia.connectSession(sessionId: sessionId)
+        
+        var dbRecords: [AcceptedTerms] = []
+        for (name,policy) in self.policies {
+            let version = policy.version
+            dbRecords.append(AcceptedTerms(policy: name, userId: userId, version: version))
+        }
+        try await dbRecords.create(on: req.db)
+
+    }
+    
     func onLoggedIn(req: Request, userId: String) async throws {
-        // FIXME Update the database with the fact that this user has accepted these terms
+        // Update the database with the fact that this user has accepted these terms
         // Use the AcceptedTerms model type for this
+        try await self._updateDatabase(for: req, userId: userId)
     }
     
     func onEnrolled(req: Request, userId: String) async throws {
-        // FIXME Update the database with the fact that this user has accepted these terms
+        // Update the database with the fact that this user has accepted these terms
         // Use the AcceptedTerms model type for this
+        try await self._updateDatabase(for: req, userId: userId)
     }
     
     func isEnrolled(userId: String, authType: String) async -> Bool {

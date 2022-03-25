@@ -17,12 +17,20 @@ final class AcceptedTerms: Model, Content {
     @Field(key: "user_id")
     var userId: String
     
-    @Field(key: "name")
-    var name: String
+    @Field(key: "policy")
+    var policy: String
     
     @Field(key: "version")
     var version: String
     
     @Timestamp(key: "accepted_at", on: .create)
     var acceptedAt: Date?
+    
+    init() { }
+    
+    init(policy: String, userId: String, version: String) {
+        self.policy = policy
+        self.userId = userId
+        self.version = version
+    }
 }
