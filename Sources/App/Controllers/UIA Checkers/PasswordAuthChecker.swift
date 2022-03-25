@@ -7,6 +7,7 @@
 
 import Fluent
 import Vapor
+import AnyCodable
 
 struct PasswordPolicy: Content {
     var minimumLength: Int
@@ -36,12 +37,12 @@ struct PasswordAuthChecker: AuthChecker {
         [AUTH_TYPE_LOGIN, AUTH_TYPE_ENROLL]
     }
     
-    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : String]? {
+    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         switch authType  {
         case AUTH_TYPE_LOGIN:
             return nil
         case AUTH_TYPE_ENROLL:
-            return ["minimum_length": String(self.policy.minimumLength)]
+            return ["minimum_length": AnyCodable(self.policy.minimumLength)]
         default:
             throw Abort(.badRequest)
         }

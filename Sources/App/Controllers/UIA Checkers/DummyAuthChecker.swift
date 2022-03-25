@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import AnyCodable
 
 struct DummyAuthChecker: AuthChecker {
     let AUTH_TYPE_DUMMY = "m.login.dummy"
@@ -14,7 +15,7 @@ struct DummyAuthChecker: AuthChecker {
         [AUTH_TYPE_DUMMY]
     }
     
-    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : String]? {
+    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         return nil
     }
     
