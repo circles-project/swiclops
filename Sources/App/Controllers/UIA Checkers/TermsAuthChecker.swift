@@ -107,6 +107,9 @@ struct TermsAuthChecker: AuthChecker {
         for (name,policy) in self.policies {
             let version = policy.version
               // Fricking stupid POS Swift compiled this once, and now can't do it again.  Argh!
+            
+            throw Abort(.notImplemented)
+            /*
             try await AcceptedTerms.query(on: request.db)
                                    .filter(\.$user == userId)
                                    .filter(\.$policy == name)
@@ -123,7 +126,7 @@ struct TermsAuthChecker: AuthChecker {
                 // User is required to accept current terms
                 return true
             }
-
+            */
         }
 
         // User is currently up-to-date and doesn't need to accept anything new
