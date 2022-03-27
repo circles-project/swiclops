@@ -17,14 +17,14 @@ struct Postmark {
                           text: String,
                           client: Client,
                           token: String
-    )
-    async throws -> SingleEmailResponse {
+    ) async throws -> SingleEmailResponseBody
+    {
         let headers = HTTPHeaders([
             ("Content-Type", "application/json"),
             ("Accept", "application/json"),
             ("X-Postmark-Server-Token", token)
         ])
-        let emailRequest = SingleEmailRequest(
+        let requestBody = SingleEmailRequestBody(
             from: from,
             to: to,
             subject: subject,
@@ -33,14 +33,14 @@ struct Postmark {
         )
         
         let response = try await client.post("https://api.postmarkapp.com/email", headers: headers) { req in
-            try req.content.encode(emailRequest)
+            try req.content.encode(requestBody)
         }
 
-        let emailResponse = try response.content.decode(SingleEmailResponse.self)
-        return emailResponse
+        let responseBody = try response.content.decode(SingleEmailResponseBody.self)
+        return responseBody
     }
 
-    struct SingleEmailRequest: Content {
+    struct SingleEmailRequestBody: Content {
         // Submit to /email endpoint
     
         var from: String
@@ -108,7 +108,7 @@ struct Postmark {
             
     }
     
-    struct SingleEmailResponse: Content {
+    struct SingleEmailResponseBody: Content {
         var to: String
         var submittedAt: Date
         var messageId: String
