@@ -5,6 +5,7 @@
 //  Created by Charles Wright on 3/24/22.
 //
 
+import Fluent
 import Vapor
 import AnyCodable
 
@@ -106,27 +107,18 @@ struct TermsAuthChecker: AuthChecker {
         
         for (name,policy) in self.policies {
             let version = policy.version
-              // Fricking stupid POS Swift compiled this once, and now can't do it again.  Argh!
-            
-            throw Abort(.notImplemented)
-            /*
-            try await AcceptedTerms.query(on: request.db)
-                                   .filter(\.$user == userId)
+                        
+            let alreadyAccepted = try await AcceptedTerms.query(on: request.db)
+                                   .filter(\.$userId == userId)
                                    .filter(\.$policy == name)
                                    .filter(\.$version >= version)
                                    .first()
 
-            try await self.app.db.query(AcceptedTerms.self)
-                .filter(\.$user == userId)
-                .filter(\.$policy == name)
-                .filter(\.$version >= version)
-                .first()
             
-            guard match != nil else {
+            guard alreadyAccepted != nil else {
                 // User is required to accept current terms
                 return true
             }
-            */
         }
 
         // User is currently up-to-date and doesn't need to accept anything new
