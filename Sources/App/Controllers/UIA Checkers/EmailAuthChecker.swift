@@ -21,6 +21,8 @@ struct EmailAuthChecker: AuthChecker {
     
     let POSTMARK_TOKEN = "FIXME"
     
+    let app: Application
+    
     struct RequestTokenUiaRequest: Content {
         struct AuthDict: UiaAuthDict {
             var type: String
@@ -37,6 +39,10 @@ struct EmailAuthChecker: AuthChecker {
             var token: String
         }
         var auth: AuthDict
+    }
+    
+    init(app: Application) {
+        self.app = app
     }
     
     
@@ -89,7 +95,7 @@ struct EmailAuthChecker: AuthChecker {
             // Verify that the user is enrolled already with the given address
             guard let _ = try await UserEmailAddress.query(on: req.db)
                                            .filter(\.$email == userEmail)
-                                           .filter(\.$userId == userId).first()
+                                           .filter(\.$userId == userId)
                                            .first()
             else {
                 // User is not enrolled with this address
@@ -112,9 +118,21 @@ struct EmailAuthChecker: AuthChecker {
                                      client: req.client,
                                      token: POSTMARK_TOKEN)
         
+        if postmarkResponse.errorCode != 0 {
+            // Sending the email through Postmark has failed
+            throw Abort(.internalServerError)
+        }
+        
         // Save the code that we sent, so we can check it later
         let session = req.uia.connectSession(sessionId: auth.session)
         session.setData(for: authType+".token", value: code)
+        if ENROLL_REQUEST_TOKEN == authType {
+            // We're enrolling the user here, so this is a new email address for us
+            // Save the address in the UIA session for now
+            // If the user succeeds in enrolling, we'll save it into the DB in onEnrolled()
+            session.setData(for: authType+".email", value: userEmail)
+        }
+
         
         // So far so good.  Allow the user to progress to the next stage in the auth flow.
         return true
@@ -183,17 +201,33 @@ struct EmailAuthChecker: AuthChecker {
     
     func onEnrolled(req: Request, userId: String) async throws {
         // FIXME Save the user's email address in the database
-        throw Abort(.notImplemented)
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            throw Abort(.badRequest)
+        }
+        
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
+        
+        if let userEmail = session.getData(for: ENROLL_REQUEST_TOKEN+".email") {
+            let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
+            try await emailRecord.save(on: req.db)
+        }
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
         // FIXME Lookup whether the user in the database
-        throw Abort(.notImplemented)
+        if let _ = try await UserEmailAddress.query(on: app.db)
+                                             .filter(\.$userId == userId)
+                                             .first()
+        {
+            return true
+        } else {
+            return false
+        }
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        // FIXME How do we handle this one?
-        //throw Abort(.notImplemented)
+        // No way out of doing the email verification
         return true
     }
     
