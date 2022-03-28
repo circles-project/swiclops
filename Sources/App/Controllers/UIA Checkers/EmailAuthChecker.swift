@@ -215,7 +215,7 @@ struct EmailAuthChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        // FIXME Lookup whether the user in the database
+        // Lookup whether the user is in the database
         if let _ = try await UserEmailAddress.query(on: app.db)
                                              .filter(\.$userId == userId)
                                              .first()
