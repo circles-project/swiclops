@@ -2,6 +2,7 @@ import Fluent
 import FluentPostgresDriver
 import Leaf
 import Vapor
+import Yams
 
 // configures your application
 public func configure(_ app: Application) throws {
@@ -26,9 +27,22 @@ public func configure(_ app: Application) throws {
     var uiaController = UiaController(app: app,
                                       config: .init(homeserver: URL(string: "https://kombucha.social/")!,
                                                     routes: []),
-                                      checkers: [PasswordAuthChecker(app: app)]
+                                      checkers: ["m.login.password": PasswordAuthChecker(app: app)]
     )
+    
+
 
     // register routes
+    try app.register(collection: uiaController)
     try routes(app)
+}
+
+struct AppConfig: Decodable {
+    var uia: UiaController.Config
+}
+
+func loadConfiguration(filename: String) throws {
+    let configData = try Data(contentsOf: URL(fileURLWithPath: filename))
+    let decoder = YAMLDecoder()
+    let config = try decoder.decode(AppConfig.self, from: configData)
 }

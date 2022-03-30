@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import AnyCodable
 
 protocol UiaAuthDict: Content {
     var type: String { get }
@@ -24,12 +25,35 @@ struct UiaFlow: Content {
     var stages: [String]
 }
 
+/*
 struct UiaResponse: Content {
     var flows: [UiaFlow]
     
     var completed: [String]?
     
-    var params: [String: [String: String]]
+    var params: [String: [String: AnyCodable]]
     
     var session: String
+}
+*/
+
+struct MatrixUiaResponse: MatrixResponse {
+    var status: HTTPStatus
+    var body: Body
+    
+    struct Body: Content {
+        var flows: [UiaFlow]
+        
+        var completed: [String]?
+        
+        var params: [String: [String: AnyCodable]]
+        
+        var session: String
+    }
+    
+    func encodeResponse(for request: Request) async throws -> Response {
+        let encoder = JSONEncoder()
+        let bodyData = try encoder.encode(body)
+        return Response(status: status, body: .init(data: bodyData))
+    }
 }
