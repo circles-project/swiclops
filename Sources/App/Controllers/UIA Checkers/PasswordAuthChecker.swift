@@ -22,6 +22,35 @@ struct PasswordPolicy: Content {
 
 struct PasswordAuthChecker: AuthChecker {
     
+    struct LoginUiaRequest: Content {
+        struct AuthDict: UiaAuthDict {
+            var type: String
+            var session: String
+
+            // FIXME This should actually be flexible to handle different things
+            //       See https://spec.matrix.org/v1.2/client-server-api/#identifier-types
+            struct mIdUser: Content {
+                var type: String
+                var user: String
+            }
+            
+            var identifier: mIdUser
+            var password: String
+        }
+        
+        var auth: AuthDict
+    }
+
+    struct EnrollUiaRequest: Content {
+        struct AuthDict: UiaAuthDict {
+            var type: String
+            var session: String
+            var newPassword: String
+        }
+        var auth: AuthDict
+    }
+    
+    
     let AUTH_TYPE_LOGIN: String = "m.login.password"
     let AUTH_TYPE_ENROLL: String = "m.enroll.password"
     
@@ -63,7 +92,7 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func _checkLogin(req: Request) async throws -> Bool {
-        guard let loginRequest = try? req.content.decode(PasswordLoginUiaRequest.self)
+        guard let loginRequest = try? req.content.decode(LoginUiaRequest.self)
         else {
             throw Abort(.badRequest)
         }
@@ -108,7 +137,7 @@ struct PasswordAuthChecker: AuthChecker {
     
     func _checkEnroll(req: Request) async throws -> Bool {
         // Extract the proposed new password from the request
-        guard let enrollRequest = try? req.content.decode(PasswordEnrollUiaRequest.self),
+        guard let enrollRequest = try? req.content.decode(EnrollUiaRequest.self),
               enrollRequest.auth.type == AUTH_TYPE_ENROLL
         else {
             throw Abort(.badRequest)
