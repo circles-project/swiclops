@@ -93,6 +93,7 @@ struct UiaController: RouteCollection {
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
             // No existing UIA structure -- Return a HTTP 401 with an initial UIA JSON response
+            req.logger.debug("Request has no UIA session")
             let sessionId = _getNewSessionID()
             let session = req.uia.connectSession(sessionId: sessionId)
             var params: [String: [String: AnyCodable]] = [:]
@@ -108,6 +109,7 @@ struct UiaController: RouteCollection {
             }
             // FIXME somehow we need to set the UIA session's list of completed flows to []
             
+            req.logger.debug("Throwing UiaIncomplete error")
             throw UiaIncomplete(flows: flows, params: params, session: sessionId)
         }
         
