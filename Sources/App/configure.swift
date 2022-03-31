@@ -56,31 +56,6 @@ public func configure(_ app: Application) throws {
     """
     let config = try AppConfig(string: testConfigString)
     
-    struct StupidJunk: Codable {
-        var foo: String
-        var bar: String
-        var stupid: Bool
-        var things: [Thing]?
-        
-        struct Thing: Codable {
-            var type: String
-            var name: String
-            var weight: Int
-        }
-    }
-    let junkTestString = """
-    foo: "Foo"
-    bar: "Bar"
-    stupid: true
-    # comment
-    things:
-      - type: "animal"
-        name: "bear"
-        weight: 500
-    """
-    let ydc = YAMLDecoder()
-    let stupidjunk = try ydc.decode(from: junkTestString) as StupidJunk
-    
     //let uiaController = UiaController(app: app, config: config.uia)
     
     // register routes
