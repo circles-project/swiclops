@@ -12,6 +12,11 @@ struct ConfigurationError: Error {
 public func configure(_ app: Application) throws {
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+    
+    // Vapor docs say to clear all the existing middleware if you're using custom error middleware
+    // https://docs.vapor.codes/4.0/errors/#error-middleware
+    app.middleware = .init()
+    app.middleware.use(MatrixErrorMiddleware())
 
     app.databases.use(.postgres(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
@@ -33,12 +38,12 @@ public func configure(_ app: Application) throws {
     uia:
       homeserver: "https://matrix.kombucha.social/"
       routes:
-        - path: "/_matrix/client/:version/login"
+        - path: "/_matrix/client/r0/login"
           method: "POST"
           flows:
             - stages: ["m.login.dummy", "m.login.password"]
             - stages: ["m.login.terms", "m.login.password"]
-        - path: "/_matrix/client/:version/register"
+        - path: "/_matrix/client/r0/register"
           method: "POST"
           flows:
             - stages: ["m.login.registration_token", "m.login.terms", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.password"]
@@ -56,10 +61,10 @@ public func configure(_ app: Application) throws {
     """
     let config = try AppConfig(string: testConfigString)
     
-    //let uiaController = UiaController(app: app, config: config.uia)
+    let uiaController = UiaController(app: app, config: config.uia)
     
     // register routes
-    //try app.register(collection: uiaController)
+    try app.register(collection: uiaController)
     try routes(app)
 }
 
