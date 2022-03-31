@@ -31,6 +31,29 @@ struct UiaController: RouteCollection {
         }
     }
     
+    init(app: Application, config: Config) {
+        self.app = app
+        self.config = config
+        
+        var dummyChecker = DummyAuthChecker()
+        var passwordChecker = PasswordAuthChecker(app: app)
+        var termsChecker = TermsAuthChecker(app: app)
+        var tokenRegistrationChecker = TokenRegistrationAuthChecker()
+        var emailChecker = EmailAuthChecker(app: app)
+        
+        self.checkers = [
+            "m.login.dummy" : dummyChecker,
+            "m.enroll.password" : passwordChecker,
+            "m.login.password" : passwordChecker,
+            "m.login.terms" : termsChecker,
+            "m.login.registration_token" : tokenRegistrationChecker,
+            "m.login.email.request_token" : emailChecker,
+            "m.login.email.submit_token" : emailChecker,
+            "m.enroll.email.request_token" : emailChecker,
+            "m.enroll.email.submit_token" : emailChecker,
+        ]
+    }
+    
     func boot(routes: RoutesBuilder) throws {
         for route in self.config.routes {
             let pathComponents = route.path.split(separator: "/").map { PathComponent(stringLiteral: String($0)) }

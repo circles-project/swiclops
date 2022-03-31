@@ -41,14 +41,14 @@ struct TermsAuthChecker: AuthChecker {
     var policies: [String:Policy]
     var app: Application
     
-    init(application: Application) {
+    init(app: Application) {
         let privacy = Policy(version: "1.0",
                              en: .init(name: "Privacy Policy",
                                        url: URL(string: "https://www.example.com/privacy/en/1.0.html")!
                                        )
                              )
         self.policies = [ "privacy": privacy ]
-        self.app = application
+        self.app = app
     }
     
     func getSupportedAuthTypes() -> [String] {
