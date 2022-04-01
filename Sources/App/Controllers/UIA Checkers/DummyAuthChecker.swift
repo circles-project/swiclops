@@ -20,16 +20,20 @@ struct DummyAuthChecker: AuthChecker {
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
+        req.logger.debug("Dummy auth checker checking request of type \(authType)")
         guard AUTH_TYPE_DUMMY == authType,
               let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
-            throw Abort(.badRequest)
+            req.logger.error("DummyAuth: Wrong auth type: \(authType)")
+            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid auth type: \(authType)")
         }
         
         guard uiaRequest.auth.type == AUTH_TYPE_DUMMY else {
-            throw Abort(.forbidden)
+            req.logger.error("DummyAuth: Bad auth type: \(authType) -- Doesn't match `authType` function parameter")
+            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid auth type: \(authType)")
         }
         
+        req.logger.debug("Dummy auth checker: Returning true")
         return true
     }
     

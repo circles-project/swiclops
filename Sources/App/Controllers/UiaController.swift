@@ -58,12 +58,22 @@ struct UiaController: RouteCollection {
         for route in self.config.routes {
             let pathComponents = route.path.split(separator: "/").map { PathComponent(stringLiteral: String($0)) }
             routes.on(route.method, pathComponents, use: { (req) -> Response in
+                
+                req.logger.debug("Top-level handler got a request for \(route.path)")
+                
+                if let bodyString = req.body.string {
+                    req.logger.debug("Request body is: \(bodyString)")
+                } else {
+                    req.logger.debug("Failed to decode request content")
+                }
+                
                 try await handleUIA(req: req)
                 // Now figure out what to do
                 // * Is the route one of our own that we should handle internally?
                 // * Or is it one that we should proxy to the homeserver?
                 
-                throw Abort(.notImplemented)
+                //throw Abort(.notImplemented)
+                return Response(status: .ok)
             })
         }
     }
@@ -84,6 +94,7 @@ struct UiaController: RouteCollection {
             $0.path == req.url.path && $0.method == req.method
         }) else {
             // We're not even supposed to be here
+            req.logger.error("UIA handler got a request for an un-handled route")
             throw Abort(.internalServerError)
         }
 
@@ -134,6 +145,7 @@ struct UiaController: RouteCollection {
             // Uh oh, we screwed up and we don't have a checker for an auth type that we advertised.  Doh!
             // FIXME Create an actual Matrix response and return it
             //throw Abort(.internalServerError)
+            req.logger.error("No checker found for requested auth type: \(authType)")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No checker found for auth type \(authType)")
         }
         
@@ -143,6 +155,7 @@ struct UiaController: RouteCollection {
             // * Was this the final stage that we needed?
             // * Or are there still more to be completed?
             
+            // FIXME Next step: Fill in the code for this part
             throw Abort(.notImplemented)
             
         } else {
