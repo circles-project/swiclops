@@ -26,6 +26,7 @@ struct FooAuthChecker: AuthChecker {
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
+        req.logger.debug("Foo: Getting params")
         let number = Int.random(in: 0 ..< (1<<16))
         let foo = "\(number)"
         
@@ -33,6 +34,8 @@ struct FooAuthChecker: AuthChecker {
         let session = req.uia.connectSession(sessionId: sessionId)
         session.setData(for: AUTH_TYPE_FOO+".foo", value: foo)
         
+        req.logger.debug("Foo: Saved foo = \(foo)")
+
         return ["foo": AnyCodable(foo)]
     }
     

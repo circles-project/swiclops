@@ -40,9 +40,11 @@ struct UiaController: RouteCollection {
         var termsChecker = TermsAuthChecker(app: app)
         var tokenRegistrationChecker = TokenRegistrationAuthChecker()
         var emailChecker = EmailAuthChecker(app: app)
+        var fooChecker = FooAuthChecker()
         
         self.checkers = [
             "m.login.dummy" : dummyChecker,
+            "m.login.foo" : fooChecker,
             "m.enroll.password" : passwordChecker,
             "m.login.password" : passwordChecker,
             "m.login.terms" : termsChecker,
@@ -124,7 +126,7 @@ struct UiaController: RouteCollection {
             var params: [String: [String: AnyCodable]] = [:]
             for flow in flows {
                 for stage in flow.stages {
-                    if nil != params[stage] {
+                    if nil == params[stage] {
                         params[stage] = try? await checkers[stage]?.getParams(req: req, sessionId: sessionId, authType: stage, userId: userId)
                     }
                 }

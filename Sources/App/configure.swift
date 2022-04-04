@@ -41,7 +41,7 @@ public func configure(_ app: Application) throws {
         - path: "/_matrix/client/r0/login"
           method: "POST"
           flows:
-            - stages: ["m.login.dummy", "m.login.password"]
+            - stages: ["m.login.dummy", "m.login.foo"]
             - stages: ["m.login.terms", "m.login.password"]
         - path: "/_matrix/client/r0/register"
           method: "POST"
