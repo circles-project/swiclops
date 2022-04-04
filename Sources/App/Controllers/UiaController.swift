@@ -137,8 +137,8 @@ struct UiaController: RouteCollection {
         
         let auth = uiaRequest.auth
         let sessionId = auth.session
-        // FIXME somehow we need to get (and later update) the UIA session's list of completed flows
-        
+        let session = req.uia.connectSession(sessionId: sessionId)
+
         let authType = auth.type
         // Is this one of the auth types that are required here?
         let allStages = flows.reduce( Set<String>()) { (curr,next) in
@@ -151,6 +151,10 @@ struct UiaController: RouteCollection {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid auth type \(authType)")
         }
         
+        if session.completed.contains(authType) {
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Authentication stage \(authType) has already been completed")
+        }
+        
         guard let checker = self.checkers[authType]
         else {
             // Uh oh, we screwed up and we don't have a checker for an auth type that we advertised.  Doh!
@@ -160,14 +164,37 @@ struct UiaController: RouteCollection {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No checker found for auth type \(authType)")
         }
         
+        
         let success = try await checker.check(req: req, authType: authType)
         if success {
             // Ok cool, we cleared one stage
+            // * Mark the stage as complete
+            req.logger.debug("UIA controller: Marking stage \(authType) as complete")
+            session.markStageComplete(stage: authType)
             // * Was this the final stage that we needed?
             // * Or are there still more to be completed?
+            let completedStages: Set<String> = .init(session.completed)
+            req.logger.debug("UIA controller: Completed stages = \(completedStages)")
+            for flow in flows {
+                let flowStages: Set<String> = .init(flow.stages)
+                if completedStages.isSuperset(of: flowStages) {
+                    // Yay we're done with UIA
+                    // Let's get out of here -- Let the main handler do whatever it needs to do with the "real" request
+                    req.logger.debug("UIA controller: Yay we're done with UIA")
+                    return
+                }
+            }
             
-            // FIXME Next step: Fill in the code for this part
-            throw Abort(.notImplemented)
+            var newParams: [String: [String: AnyCodable]] = [:]
+            for flow in flows {
+                for stage in flow.stages {
+                    if nil != newParams[stage] {
+                        newParams[stage] = try? await checkers[stage]?.getParams(req: req, sessionId: sessionId, authType: stage, userId: userId)
+                    }
+                }
+            }
+            
+            throw UiaIncomplete(flows: flows, completed: session.completed, params: newParams, session: sessionId)
             
         } else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Authentication failed for type \(authType)")

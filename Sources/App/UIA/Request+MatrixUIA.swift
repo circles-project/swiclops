@@ -84,6 +84,21 @@ extension Request {
                 app.uia.sessions[self.sessionId]![key] = value
                 
             }
+            
+            public func markStageComplete(stage: String) {
+                let app = self.req.application
+                if let _ = app.uia.sessions[self.sessionId] {
+                    // Do nothing
+                } else {
+                    app.uia.sessions[self.sessionId] = UiaSessionData()
+                }
+                app.uia.sessions[self.sessionId]!.completed.append(stage)
+            }
+            
+            var completed: [String] {
+                let app = self.req.application
+                return app.uia.sessions[self.sessionId]?.completed ?? []
+            }
         }
     }
 }
