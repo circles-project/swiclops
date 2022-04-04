@@ -66,7 +66,7 @@ struct PasswordAuthChecker: AuthChecker {
         [AUTH_TYPE_LOGIN, AUTH_TYPE_ENROLL]
     }
     
-    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
+    func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         switch authType  {
         case AUTH_TYPE_LOGIN:
             return nil

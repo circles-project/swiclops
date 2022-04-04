@@ -51,7 +51,7 @@ struct EmailAuthChecker: AuthChecker {
          LOGIN_REQUEST_TOKEN, LOGIN_SUBMIT_TOKEN]
     }
     
-    func getParams(req: Request, authType: String, userId maybeUserId: String?) async throws -> [String : AnyCodable]? {
+    func getParams(req: Request, sessionId: String, authType: String, userId maybeUserId: String?) async throws -> [String : AnyCodable]? {
         if LOGIN_REQUEST_TOKEN == authType {
             // The user is already registered, so we know what their valid email address(es) are
             // If they have more than one address, they need to tell us which one to use

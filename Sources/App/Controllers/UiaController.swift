@@ -83,6 +83,18 @@ struct UiaController: RouteCollection {
         return String( (0 ..< length).map { _ in "0123456789".randomElement()! } )
     }
     
+    private func _getUserId(req: Request) -> String? {
+        guard let bearerHeader = req.headers.bearerAuthorization else {
+            return nil
+        }
+        let token = bearerHeader.token
+        // FIXME Lookup the userId based on the bearer token
+        //       We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
+        //       We should probably also cache the access token locally, so we don't constantly batter that endpoint
+        // FIXME For now we fake it :)
+        return "@alice:example.org"
+    }
+    
     // FIXME Add a callback so that we can handle UIA and then do something else
     //       Like, sometimes we want to proxy the "real" request (sans UIA) to the homeserver
     //       But other times, we need to handle the request ourselves in another handler
@@ -100,6 +112,8 @@ struct UiaController: RouteCollection {
 
         let flows = route.flows
         
+        let userId = try await _getUserId(req: req)
+        
         // Does this request already have a session associated with it?
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
@@ -111,10 +125,7 @@ struct UiaController: RouteCollection {
             for flow in flows {
                 for stage in flow.stages {
                     if nil != params[stage] {
-                        // FIXME The userId should not be nil when the user is logged in and doing something that requires auth
-                        //       We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
-                        //       We should probably also cache the access token locally, so we don't constantly batter that endpoint
-                        params[stage] = try? await checkers[stage]?.getParams(req: req, authType: stage, userId: nil)
+                        params[stage] = try? await checkers[stage]?.getParams(req: req, sessionId: sessionId, authType: stage, userId: userId)
                     }
                 }
             }

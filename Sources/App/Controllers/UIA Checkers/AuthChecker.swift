@@ -13,7 +13,7 @@ protocol AuthChecker {
     
     func getSupportedAuthTypes() -> [String]
     
-    func getParams(req: Request, authType: String, userId: String?) async throws -> [String:AnyCodable]?
+    func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String:AnyCodable]?
     
     func check(req: Request, authType: String) async throws -> Bool
     

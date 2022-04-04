@@ -55,7 +55,7 @@ struct TermsAuthChecker: AuthChecker {
         [AUTH_TYPE_TERMS]
     }
     
-    func getParams(req: Request, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
+    func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         return ["policies": AnyCodable(self.policies)]
     }
     
