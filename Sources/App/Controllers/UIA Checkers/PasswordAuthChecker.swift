@@ -131,8 +131,7 @@ struct PasswordAuthChecker: AuthChecker {
             }
         }
         // If none of the stored hashes match the password, reject the request
-        throw Abort(.forbidden)
-        //return false
+        return false
     }
     
     func _checkEnroll(req: Request) async throws -> Bool {
