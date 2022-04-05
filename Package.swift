@@ -14,6 +14,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0"),
         .package(url: "https://github.com/Flight-School/AnyCodable", from: "0.6.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
+        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.1.1")
     ],
     targets: [
         .target(
@@ -25,6 +26,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "Yams", package: "yams"),
+                .product(name: "BlindSaltSpeke", package: "blindsaltspeke")
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of
