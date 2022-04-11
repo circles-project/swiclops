@@ -85,11 +85,49 @@ struct BSSpekeAuthChecker: AuthChecker {
         default:
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid BS-SPEKE auth stage \(authType)")
         }
-        
-        throw Abort(.notImplemented)
     }
     
-    private func doLoginOPRF(req: Request, authType: String) async throws {
+    private func computeB(req: Request, nextStage: String) async throws -> Bool {
+        guard let oprfRequest = try? req.content.decode(OprfRequest.self) else {
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Failed to decode BS-SPEKE OPRF request")
+        }
+        let auth = oprfRequest.auth
+        let sessionId = auth.session
+        let session = req.uia.connectSession(sessionId: sessionId)
+        
+        guard let bss = await session.getData(for: nextStage+".state") as? BlindSaltSpeke.ServerSession
+        else {
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find BS-SPEKE session state")
+        }
+        
+        guard let userId = await session.getData(for: "m.user.id") as? String else {
+            throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
+        }
+        
+        guard let dbRecord = try await BsspekeUser.query(on: req.db)
+            .filter(\.$id == userId)
+            .filter(\.$curve == auth.curve)
+            .first()
+        else {
+            throw MatrixError(status: .forbidden, errcode: .forbidden, error: "User is not enrolled for BS-SPEKE auth")
+        }
+        
+        let Pstring = dbRecord.P
+        
+        guard let Pdata = Data(base64Encoded: Pstring) else {
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to decode user's base point on the curve")
+        }
+        let P = [UInt8](Pdata)
+        
+        let B = bss.generateB(basePoint: P)
+        
+        // Save blindSalt and B in our UIA session
+        await session.setData(for: nextStage+".B", value: B.base64)
+        
+        return true
+    }
+    
+    private func doOPRF(req: Request, nextStage: String) async throws -> Bool {
         guard let oprfRequest = try? req.content.decode(OprfRequest.self) else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Failed to decode BS-SPEKE OPRF request")
         }
@@ -110,34 +148,32 @@ struct BSSpekeAuthChecker: AuthChecker {
         var bss = BlindSaltSpeke.ServerSession(serverId: self.serverId, clientId: userId, salt: self.oprfKey)
         let blindSalt = try bss.blindSalt(blind: blind)
         
-        guard let dbRecord = try await BsspekeUser.query(on: req.db)
-            .filter(\.$id == userId)
-            .filter(\.$curve == auth.curve)
-            .first()
-        else {
-            throw MatrixError(status: .forbidden, errcode: .forbidden, error: "User is not enrolled for BS-SPEKE auth")
-        }
+        // Save the blind salt for return to the user
+        await session.setData(for: nextStage+".blind_salt", value: blindSalt.base64)
+        // Save our BS-SPEKE session for use in the next stage
+        await session.setData(for: nextStage+".state", value: bss)
         
-        let Pstring = dbRecord.P
-        let Vstring = dbRecord.V
-        
-        guard let Pdata = Data(base64Encoded: Pstring) else {
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to decode user's base point on the curve")
-        }
-        let P = [UInt8](Pdata)
-        
-        let B = bss.generateB(basePoint: P)
-        
-        // Save blindSalt and B in our UIA session
-        await session.setData(for: LOGIN_VERIFY+".blind_salt", value: blindSalt.base64)
-        await session.setData(for: LOGIN_VERIFY+".B", value: B.base64)
-        // Save our BS-SPEKE session object as well
-        await session.setData(for: LOGIN_VERIFY+".state", value: bss)
+        return true
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
-        var bss = BlindSaltSpeke.ServerSession(serverId: "example.com", clientId: "@bob:example.com", salt: .init(repeating: 0xff, count: 32))
-        throw Abort(.notImplemented)
+        switch authType {
+        case ENROLL_OPRF:
+            return try await doOPRF(req: req, nextStage: ENROLL_SAVE)
+        case LOGIN_OPRF:
+            let oprfSuccess = try await doOPRF(req: req, nextStage: LOGIN_VERIFY)
+            if oprfSuccess {
+                return try await computeB(req: req, nextStage: LOGIN_VERIFY)
+            } else {
+                return false
+            }
+        case ENROLL_SAVE:
+            throw Abort(.notImplemented)
+        case LOGIN_VERIFY:
+            throw Abort(.notImplemented)
+        default:
+            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Bad auth type: \(authType) is not BS-SPEKE")
+        }
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
@@ -145,11 +181,29 @@ struct BSSpekeAuthChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, userId: String) async throws {
-        throw Abort(.notImplemented)
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Can't enroll on a non-UIA request")
+        }
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
+        
+        guard let userId = await session.getData(for: "m.user.id") as? String,
+              let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String,
+              let P = await session.getData(for: ENROLL_SAVE+".P") as? String,
+              let V = await session.getData(for: ENROLL_SAVE+".V") as? String
+        else {
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not retrieve BS-SPEKE data from UIA session")
+        }
+        let dbRecord = BsspekeUser(id: userId, curve: curve, P: P, V: V, phf: .init())
+        try await dbRecord.create(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        throw Abort(.notImplemented)
+        let dbRecord = try await BsspekeUser.query(on: app.db)
+            .filter(\.$id == userId)
+            .first()
+        
+        return dbRecord != nil
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
@@ -157,7 +211,9 @@ struct BSSpekeAuthChecker: AuthChecker {
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        throw Abort(.notImplemented)
+        try await BsspekeUser.query(on: req.db)
+                             .filter(\.$id == userId)
+                             .delete()
     }
     
     
