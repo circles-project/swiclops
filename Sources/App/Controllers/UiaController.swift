@@ -9,9 +9,7 @@ import Vapor
 import Yams
 import AnyCodable
 
-extension HTTPMethod: Codable {
-    
-}
+extension HTTPMethod: Codable { }
 
 struct UiaController: RouteCollection {
 
@@ -41,6 +39,7 @@ struct UiaController: RouteCollection {
         var tokenRegistrationChecker = TokenRegistrationAuthChecker()
         var emailChecker = EmailAuthChecker(app: app)
         var fooChecker = FooAuthChecker()
+        var bsspekeChecker = BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32))
         
         self.checkers = [
             "m.login.dummy" : dummyChecker,
@@ -53,6 +52,10 @@ struct UiaController: RouteCollection {
             "m.login.email.submit_token" : emailChecker,
             "m.enroll.email.request_token" : emailChecker,
             "m.enroll.email.submit_token" : emailChecker,
+            bsspekeChecker.ENROLL_OPRF: bsspekeChecker,
+            bsspekeChecker.ENROLL_SAVE: bsspekeChecker,
+            bsspekeChecker.LOGIN_OPRF: bsspekeChecker,
+            bsspekeChecker.LOGIN_VERIFY: bsspekeChecker,
         ]
     }
     
@@ -153,7 +156,8 @@ struct UiaController: RouteCollection {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid auth type \(authType)")
         }
         
-        if session.completed.contains(authType) {
+        let alreadyCompleted = await session.getCompleted()
+        if alreadyCompleted.contains(authType) {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Authentication stage \(authType) has already been completed")
         }
         
@@ -172,10 +176,12 @@ struct UiaController: RouteCollection {
             // Ok cool, we cleared one stage
             // * Mark the stage as complete
             req.logger.debug("UIA controller: Marking stage \(authType) as complete")
-            session.markStageComplete(stage: authType)
+            await session.markStageComplete(stage: authType)
             // * Was this the final stage that we needed?
             // * Or are there still more to be completed?
-            let completedStages: Set<String> = .init(session.completed)
+            let completed = await session.getCompleted()
+            req.logger.debug("UIA controller: Got completed = \(completed)")
+            let completedStages: Set<String> = .init(completed)
             req.logger.debug("UIA controller: Completed stages = \(completedStages)")
             for flow in flows {
                 let flowStages: Set<String> = .init(flow.stages)
@@ -196,7 +202,7 @@ struct UiaController: RouteCollection {
                 }
             }
             
-            throw UiaIncomplete(flows: flows, completed: session.completed, params: newParams, session: sessionId)
+            throw UiaIncomplete(flows: flows, completed: completed, params: newParams, session: sessionId)
             
         } else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Authentication failed for type \(authType)")

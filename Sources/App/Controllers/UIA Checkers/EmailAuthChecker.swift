@@ -87,7 +87,7 @@ struct EmailAuthChecker: AuthChecker {
         if authType == LOGIN_REQUEST_TOKEN {
             // Ok we're trying to log in some user.  Who is it?
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = session.getData(for: "m.user.id") else {
+            guard let userId = await session.getData(for: "m.user.id") as? String else {
                 // The top-level handler should have
                 throw Abort(.internalServerError)
             }
@@ -125,12 +125,12 @@ struct EmailAuthChecker: AuthChecker {
         
         // Save the code that we sent, so we can check it later
         let session = req.uia.connectSession(sessionId: auth.session)
-        session.setData(for: authType+".token", value: code)
+        await session.setData(for: authType+".token", value: code)
         if ENROLL_REQUEST_TOKEN == authType {
             // We're enrolling the user here, so this is a new email address for us
             // Save the address in the UIA session for now
             // If the user succeeds in enrolling, we'll save it into the DB in onEnrolled()
-            session.setData(for: authType+".email", value: userEmail)
+            await session.setData(for: authType+".email", value: userEmail)
         }
 
         
@@ -149,7 +149,7 @@ struct EmailAuthChecker: AuthChecker {
         
         switch authType {
         case ENROLL_SUBMIT_TOKEN:
-            guard let savedCode = session.getData(for: ENROLL_REQUEST_TOKEN+".token"),
+            guard let savedCode = await session.getData(for: ENROLL_REQUEST_TOKEN+".token") as? String,
                   savedCode == code
             else {
                 // Hmmm either
@@ -160,7 +160,7 @@ struct EmailAuthChecker: AuthChecker {
                 throw Abort(.forbidden)
             }
         case LOGIN_SUBMIT_TOKEN:
-            guard let savedCode = session.getData(for: LOGIN_REQUEST_TOKEN+".token"),
+            guard let savedCode = await session.getData(for: LOGIN_REQUEST_TOKEN+".token") as? String,
                   savedCode == code
             else {
                 // Hmmm either
@@ -208,7 +208,7 @@ struct EmailAuthChecker: AuthChecker {
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
         
-        if let userEmail = session.getData(for: ENROLL_REQUEST_TOKEN+".email") {
+        if let userEmail = await session.getData(for: ENROLL_REQUEST_TOKEN+".email") as? String {
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
             try await emailRecord.save(on: req.db)
         }

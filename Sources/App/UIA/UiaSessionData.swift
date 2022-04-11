@@ -7,11 +7,11 @@
 import Foundation
 import Vapor
 
-public struct UiaSessionData {
+public class UiaSessionData {
     //public var state: UiaaSessionState
     
-    private var dict: [String:String]
-    public var snapshot: [String:String] { self.dict }
+    private var dict: [String:Any]
+    public var snapshot: [String:Any] { self.dict }
     public var completed: [String]
     public var createdAt: Date
     
@@ -29,7 +29,7 @@ public struct UiaSessionData {
     }
     */
     
-    public subscript(_ key: String) -> String? {
+    public subscript(_ key: String) -> Any? {
         get { return self.dict[key] }
         set(newValue) { self.dict[key] = newValue }
     }

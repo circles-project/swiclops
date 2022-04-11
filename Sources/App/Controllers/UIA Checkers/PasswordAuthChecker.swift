@@ -155,7 +155,7 @@ struct PasswordAuthChecker: AuthChecker {
         //   Connect to our persistent UIA session state
         let session = req.uia.connectSession(sessionId: auth.session)
         //   Actually save the digest into the session state
-        session.setData(for: AUTH_TYPE_ENROLL+".digest", value: digest)
+        await session.setData(for: AUTH_TYPE_ENROLL+".digest", value: digest)
 
         return true
     }
@@ -171,7 +171,7 @@ struct PasswordAuthChecker: AuthChecker {
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
         // Find the hashed password in the session state
-        guard let digest = session.getData(for: AUTH_TYPE_ENROLL+".digest") else {
+        guard let digest = await session.getData(for: AUTH_TYPE_ENROLL+".digest") as? String else {
             throw Abort(.internalServerError)
         }
         // Save the new hash in the database

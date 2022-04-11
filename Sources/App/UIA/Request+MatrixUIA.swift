@@ -66,38 +66,40 @@ extension Request {
                 self.sessionId = sessionId
             }
             
-            public func getData(for key: String) -> String? {
+            public func getData(for key: String) async -> Any? {
                 let app = self.req.application
-                guard let sessionData = app.uia.sessions[self.sessionId] else {
+                guard let sessionData = await app.uia.sessions.get(self.sessionId) else {
                     return nil
                 }
                 return sessionData[key]
             }
             
-            public func setData(for key: String, value: String) {
+            public func setData(for key: String, value: Any) async {
                 let app = self.req.application
-                if let _ = app.uia.sessions[self.sessionId] {
+                if let _ = await app.uia.sessions.get(self.sessionId) {
                     // Do nothing
                 } else {
-                    app.uia.sessions[self.sessionId] = UiaSessionData()
+                    await app.uia.sessions.set(self.sessionId, UiaSessionData())
                 }
-                app.uia.sessions[self.sessionId]![key] = value
+                var s = await app.uia.sessions.get(self.sessionId)!
+                s[key] = value
                 
             }
             
-            public func markStageComplete(stage: String) {
+            public func markStageComplete(stage: String) async {
                 let app = self.req.application
-                if let _ = app.uia.sessions[self.sessionId] {
+                if let _ = await app.uia.sessions.get(self.sessionId) {
                     // Do nothing
                 } else {
-                    app.uia.sessions[self.sessionId] = UiaSessionData()
+                    await app.uia.sessions.set(self.sessionId, UiaSessionData())
                 }
-                app.uia.sessions[self.sessionId]!.completed.append(stage)
+                var s = await app.uia.sessions.get(self.sessionId)!
+                s.completed.append(stage)
             }
             
-            var completed: [String] {
+            public func getCompleted() async -> [String] {
                 let app = self.req.application
-                return app.uia.sessions[self.sessionId]?.completed ?? []
+                return await app.uia.sessions.get(self.sessionId)?.completed ?? []
             }
         }
     }

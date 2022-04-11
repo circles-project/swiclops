@@ -32,7 +32,7 @@ struct FooAuthChecker: AuthChecker {
         
         // FIXME Save foo in the UIA session
         let session = req.uia.connectSession(sessionId: sessionId)
-        session.setData(for: AUTH_TYPE_FOO+".foo", value: foo)
+        await session.setData(for: AUTH_TYPE_FOO+".foo", value: foo)
         
         req.logger.debug("Foo: Saved foo = \(foo)")
 
@@ -46,7 +46,7 @@ struct FooAuthChecker: AuthChecker {
         let auth = fooUiaRequest.auth
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
-        let savedFoo = session.getData(for: AUTH_TYPE_FOO+".foo")
+        let savedFoo = await session.getData(for: AUTH_TYPE_FOO+".foo") as? String
         let newFoo = auth.foo
         guard newFoo == savedFoo else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Access denied: foo does not match")

@@ -81,7 +81,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         
         // Finally, add the token to our UIA session state storage
         let session = req.uia.connectSession(sessionId: sessionId)
-        session.setData(for: "registration_token", value: token)
+        await session.setData(for: "registration_token", value: token)
         
         return true
     }
@@ -101,7 +101,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         let sessionId = auth.session
         
         let session = req.uia.connectSession(sessionId: sessionId)
-        guard let token = session.getData(for: "registration_token") else {
+        guard let token = await session.getData(for: "registration_token") as? String else {
             throw Abort(.internalServerError)
         }
         

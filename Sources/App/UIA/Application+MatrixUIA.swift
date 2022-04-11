@@ -26,14 +26,15 @@ extension Application {
     }
     
     public struct MatrixUIA {
-        public typealias UiaSessionStore = ConcurrentDictionary<String,UiaSessionData>
+        //public typealias UiaSessionStore = ConcurrentDictionary<String,UiaSessionData>
+        public typealias UiaSessionStore = ShardedActorDictionary<String,UiaSessionData>
         let app: Application
         
         var sessions: UiaSessionStore
         
         init(app: Application) {
             self.app = app
-            self.sessions = UiaSessionStore(n: 32)
+            self.sessions = UiaSessionStore(n: 64)
         }
         
         /*
