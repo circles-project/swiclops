@@ -1,5 +1,6 @@
 import Fluent
 import FluentPostgresDriver
+import FluentSQLiteDriver
 import Leaf
 import Vapor
 import Yams
@@ -18,6 +19,7 @@ public func configure(_ app: Application) throws {
     app.middleware = .init()
     app.middleware.use(MatrixErrorMiddleware())
 
+    /*
     app.databases.use(.postgres(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
@@ -25,7 +27,8 @@ public func configure(_ app: Application) throws {
         password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
         database: Environment.get("DATABASE_NAME") ?? "vapor_database"
     ), as: .psql)
-
+    */
+     
     app.migrations.add(CreateTodo())
 
     app.views.use(.leaf)
@@ -48,18 +51,31 @@ public func configure(_ app: Application) throws {
           flows:
             - stages: ["m.login.registration_token", "m.login.terms", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.password"]
             
-    database:
-      type: postgres
-      hostname: localhost
-      port: 5432
-      username: swiclops
-      password: hunter2
-      database: swiclops
     #database:
-    #  type: sqlite
-    #  filename: "swiclops.sqlite"
+    #  type: postgres
+    #  hostname: localhost
+    #  port: 5432
+    #  username: swiclops
+    #  password: hunter2
+    #  database: swiclops
+    database:
+      type: sqlite
+      filename: "swiclops.sqlite"
     """
     let config = try AppConfig(string: testConfigString)
+    switch config.database {
+    case .sqlite(let sqliteConfig):
+        app.logger.debug("Using SQLite database")
+        app.databases.use(.sqlite(.file(sqliteConfig.filename)), as: .sqlite)
+    case .postgres(let postgresConfig):
+        app.logger.debug("Using Postgres database")
+        app.databases.use(.postgres(hostname: postgresConfig.hostname,
+                                    port: postgresConfig.port,
+                                    username: postgresConfig.username,
+                                    password: postgresConfig.password,
+                                    database: postgresConfig.database),
+                          as: .psql)
+    }
     
     let uiaController = UiaController(app: app, config: config.uia)
     
@@ -136,16 +152,3 @@ struct AppConfig: Decodable {
         self = try decoder.decode(AppConfig.self, from: string)
     }
 }
-
-
-/* // Example config
- 
- database:
-   - type: "sqlite"
- 
- uia:
-  - homeserver: "matrix-synapse"
-    routes:
-      -
- 
- */
