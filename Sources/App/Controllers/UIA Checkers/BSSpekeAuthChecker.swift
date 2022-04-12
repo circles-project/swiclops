@@ -61,7 +61,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         var auth: AuthDict
     }
     
-    let app: Application
+    var app: Application
     let serverId: String
     let oprfKey: [UInt8]
     
@@ -202,10 +202,12 @@ struct BSSpekeAuthChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
+        /* // Apparently this isn't actually needed here...
         guard let userId = await session.getData(for: "m.user.id") as? String
         else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find user id for BS-SPEKE verification")
         }
+        */
         
         guard let bss = await session.getData(for: LOGIN_VERIFY+".state") as? BlindSaltSpeke.ServerSession,
               let Vstring = await session.getData(for: LOGIN_VERIFY+".V") as? String
@@ -231,15 +233,16 @@ struct BSSpekeAuthChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
+        /*
         guard let userId = await session.getData(for: "m.user.id") as? String
         else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find user id for BS-SPEKE enrollment")
         }
-        
         guard let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String
         else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Must complete OPRF stage before attempting BS-SPEKE enrollment")
         }
+        */
 
         // Store all the stuff from the request into our UIA session
         // Then, if the whole UIA process succeeds, we will save these into the database later in onEnroll()
@@ -255,12 +258,12 @@ struct BSSpekeAuthChecker: AuthChecker {
         case ENROLL_OPRF:
             try await doOPRF(req: req, nextStage: ENROLL_SAVE)
             return true
+        case ENROLL_SAVE:
+            try await enrollExtractParams(req: req)
+            return true
         case LOGIN_OPRF:
             try await doOPRF(req: req, nextStage: LOGIN_VERIFY)
             try await computeB(req: req, nextStage: LOGIN_VERIFY)
-            return true
-        case ENROLL_SAVE:
-            try await enrollExtractParams(req: req)
             return true
         case LOGIN_VERIFY:
             return try await verify(req: req)
