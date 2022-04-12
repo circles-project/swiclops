@@ -93,8 +93,8 @@ struct BSSpekeAuthChecker: AuthChecker {
                 // If the user wants to log in, we need to know who they claim to be
                 throw MatrixError(status: .badRequest, errcode: .missingParam, error: "Missing parameter: user id")
             }
-            let maybeRecord = try await BsspekeUser.query(on: req.db)
-                .filter(\.$id == userId)
+            let maybeRecord = try await BSSpekeUser.query(on: req.db)
+                .filter(\.$userId == userId)
                 .first()
             guard let rec = maybeRecord else {
                 // User doesn't seem to be enrolled with us.
@@ -176,8 +176,8 @@ struct BSSpekeAuthChecker: AuthChecker {
             throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
         }
         
-        guard let dbRecord = try await BsspekeUser.query(on: req.db)
-            .filter(\.$id == userId)
+        guard let dbRecord = try await BSSpekeUser.query(on: req.db)
+            .filter(\.$userId == userId)
             .filter(\.$curve == auth.curve)
             .first()
         else {
@@ -273,9 +273,10 @@ struct BSSpekeAuthChecker: AuthChecker {
         // Then, if the whole UIA process succeeds, we will save these into the database later in onEnroll()
         await session.setData(for: ENROLL_SAVE+".P", value: auth.P)
         await session.setData(for: ENROLL_SAVE+".V", value: auth.V)
-        await session.setData(for: ENROLL_SAVE+".phf.name", value: auth.phfParams.name)
-        await session.setData(for: ENROLL_SAVE+".phf.blocks", value: auth.phfParams.blocks)
-        await session.setData(for: ENROLL_SAVE+".phf.iterations", value: auth.phfParams.iterations)
+        //await session.setData(for: ENROLL_SAVE+".phf.name", value: auth.phfParams.name)
+        //await session.setData(for: ENROLL_SAVE+".phf.blocks", value: auth.phfParams.blocks)
+        //await session.setData(for: ENROLL_SAVE+".phf.iterations", value: auth.phfParams.iterations)
+        await session.setData(for: ENROLL_SAVE+".phf_params", value: auth.phfParams)
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
@@ -311,17 +312,18 @@ struct BSSpekeAuthChecker: AuthChecker {
         guard let userId = await session.getData(for: "m.user.id") as? String,
               let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String,
               let P = await session.getData(for: ENROLL_SAVE+".P") as? String,
-              let V = await session.getData(for: ENROLL_SAVE+".V") as? String
+              let V = await session.getData(for: ENROLL_SAVE+".V") as? String,
+              let phfParams = await session.getData(for: ENROLL_SAVE+".phf_params") as? PhfParams
         else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not retrieve BS-SPEKE data from UIA session")
         }
-        let dbRecord = BsspekeUser(id: userId, curve: curve, P: P, V: V, phf: .init())
+        let dbRecord = BSSpekeUser(userId: userId, curve: curve, P: P, V: V, phf: phfParams)
         try await dbRecord.create(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        let dbRecord = try await BsspekeUser.query(on: app.db)
-            .filter(\.$id == userId)
+        let dbRecord = try await BSSpekeUser.query(on: app.db)
+            .filter(\.$userId == userId)
             .first()
         
         return dbRecord != nil
@@ -332,8 +334,8 @@ struct BSSpekeAuthChecker: AuthChecker {
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        try await BsspekeUser.query(on: req.db)
-                             .filter(\.$id == userId)
+        try await BSSpekeUser.query(on: req.db)
+                             .filter(\.$userId == userId)
                              .delete()
     }
     
