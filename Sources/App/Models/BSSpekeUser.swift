@@ -70,6 +70,7 @@ final class BSSpekeUser: Model {
 
 struct CreateBSSpekeUsers: AsyncMigration {
     func prepare(on database: Database) async throws {
+        database.logger.debug("Creating table bsspeke_users")
         try await database.schema("bsspeke_users")
             .id()
             .field("user_id", .string, .identifier(auto: false))
@@ -77,7 +78,7 @@ struct CreateBSSpekeUsers: AsyncMigration {
             .field("p", .string, .required)
             .field("v", .string, .required)
             .field("phf", .dictionary, .required)
-            .unique(on: "userId", "curve")  // FIXME Maybe it would be nice to support multiple passwords per curve ???
+            .unique(on: "user_id", "curve")  // FIXME Maybe it would be nice to support multiple passwords per curve ???
             .create()
     }
 
