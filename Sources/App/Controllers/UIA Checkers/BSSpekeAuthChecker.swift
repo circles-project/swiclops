@@ -67,27 +67,45 @@ struct BSSpekeAuthChecker: AuthChecker {
                 "hash_function" : AnyCodable("blake2b"),
                 "phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
             ]
-        case ENROLL_SAVE, LOGIN_VERIFY:
-            // Client should have already completed the ENROLL_OPRF stage
+        case LOGIN_VERIFY:
+            // Client should have already completed the ..._OPRF stage
             // In fact, this is our sort-of roundabout way of returning the results from that stage
             guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
                 throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
             }
             let auth = uiaRequest.auth
-            let sessionId = uiaRequest.auth.session
+            let sessionId = auth.session
             let session = req.uia.connectSession(sessionId: sessionId)
-            guard let blindSalt = await session.getData(for: ENROLL_OPRF+".blind_salt") as? String,
-                  let B = await session.getData(for: ENROLL_OPRF+".B") as? String
+            guard let blindSalt = await session.getData(for: authType+".blind_salt") as? String,
+                  let B = await session.getData(for: authType+".B") as? String
             else {
-                throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Auth stage for OPRF must be completed before completing BS-SPEKE auth")
+                //throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Auth stage for OPRF must be completed before completing BS-SPEKE auth")
+                // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet
+                return nil
             }
             return ["blind_salt": AnyCodable(blindSalt), "B": AnyCodable(B)]
+        case ENROLL_SAVE:
+            // Client should have already completed the ..._OPRF stage
+            // In fact, this is our sort-of roundabout way of returning the results from that stage
+            guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
+            }
+            let auth = uiaRequest.auth
+            let sessionId = auth.session
+            let session = req.uia.connectSession(sessionId: sessionId)
+            guard let blindSalt = await session.getData(for: authType+".blind_salt") as? String
+            else {
+                //throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Auth stage for OPRF must be completed before completing BS-SPEKE auth")
+                // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet
+                return nil
+            }
+            return ["blind_salt": AnyCodable(blindSalt)]
         default:
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid BS-SPEKE auth stage \(authType)")
         }
     }
     
-    private func computeB(req: Request, nextStage: String) async throws -> Bool {
+    private func computeB(req: Request, nextStage: String) async throws {
         guard let oprfRequest = try? req.content.decode(OprfRequest.self) else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Failed to decode BS-SPEKE OPRF request")
         }
@@ -121,13 +139,11 @@ struct BSSpekeAuthChecker: AuthChecker {
         
         let B = bss.generateB(basePoint: P)
         
-        // Save blindSalt and B in our UIA session
+        // Save B in our UIA session
         await session.setData(for: nextStage+".B", value: B.base64)
-        
-        return true
     }
     
-    private func doOPRF(req: Request, nextStage: String) async throws -> Bool {
+    private func doOPRF(req: Request, nextStage: String) async throws {
         guard let oprfRequest = try? req.content.decode(OprfRequest.self) else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Failed to decode BS-SPEKE OPRF request")
         }
@@ -152,21 +168,17 @@ struct BSSpekeAuthChecker: AuthChecker {
         await session.setData(for: nextStage+".blind_salt", value: blindSalt.base64)
         // Save our BS-SPEKE session for use in the next stage
         await session.setData(for: nextStage+".state", value: bss)
-        
-        return true
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
         switch authType {
         case ENROLL_OPRF:
-            return try await doOPRF(req: req, nextStage: ENROLL_SAVE)
+            try await doOPRF(req: req, nextStage: ENROLL_SAVE)
+            return true
         case LOGIN_OPRF:
-            let oprfSuccess = try await doOPRF(req: req, nextStage: LOGIN_VERIFY)
-            if oprfSuccess {
-                return try await computeB(req: req, nextStage: LOGIN_VERIFY)
-            } else {
-                return false
-            }
+            try await doOPRF(req: req, nextStage: LOGIN_VERIFY)
+            try await computeB(req: req, nextStage: LOGIN_VERIFY)
+            return true
         case ENROLL_SAVE:
             throw Abort(.notImplemented)
         case LOGIN_VERIFY:
