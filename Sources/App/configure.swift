@@ -102,9 +102,9 @@ struct PostgresDatabaseConfig: Decodable {
     init(hostname: String?, port: Int?, username: String?, password: String?, database: String?) {
         self.hostname = hostname ?? Environment.get("DATABASE_HOST") ?? "localhost"
         self.port = port ?? Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber
-        self.username = username ?? Environment.get("DATABASE_USERNAME") ?? "vapor_username"
-        self.password = password ?? Environment.get("DATABASE_PASSWORD") ?? "vapor_password"
-        self.database = database ?? Environment.get("DATABASE_NAME") ?? "vapor_database"
+        self.username = username ?? Environment.get("DATABASE_USERNAME") ?? "swiclops"
+        self.password = password ?? Environment.get("DATABASE_PASSWORD") ?? "swiclops"
+        self.database = database ?? Environment.get("DATABASE_NAME") ?? "swiclops"
     }
 }
 
