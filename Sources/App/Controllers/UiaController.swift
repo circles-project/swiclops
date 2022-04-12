@@ -33,30 +33,24 @@ struct UiaController: RouteCollection {
         self.app = app
         self.config = config
         
-        var dummyChecker = DummyAuthChecker()
-        var passwordChecker = PasswordAuthChecker(app: app)
-        var termsChecker = TermsAuthChecker(app: app)
-        var tokenRegistrationChecker = TokenRegistrationAuthChecker()
-        var emailChecker = EmailAuthChecker(app: app)
-        var fooChecker = FooAuthChecker()
-        var bsspekeChecker = BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32))
-        
-        self.checkers = [
-            "m.login.dummy" : dummyChecker,
-            "m.login.foo" : fooChecker,
-            "m.enroll.password" : passwordChecker,
-            "m.login.password" : passwordChecker,
-            "m.login.terms" : termsChecker,
-            "m.login.registration_token" : tokenRegistrationChecker,
-            "m.login.email.request_token" : emailChecker,
-            "m.login.email.submit_token" : emailChecker,
-            "m.enroll.email.request_token" : emailChecker,
-            "m.enroll.email.submit_token" : emailChecker,
-            bsspekeChecker.ENROLL_OPRF: bsspekeChecker,
-            bsspekeChecker.ENROLL_SAVE: bsspekeChecker,
-            bsspekeChecker.LOGIN_OPRF: bsspekeChecker,
-            bsspekeChecker.LOGIN_VERIFY: bsspekeChecker,
+        let authCheckerModules: [AuthChecker] = [
+            DummyAuthChecker(),
+            PasswordAuthChecker(app: app),
+            TermsAuthChecker(app: app),
+            TokenRegistrationAuthChecker(),
+            EmailAuthChecker(app: app),
+            FooAuthChecker(),
+            BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32)),
         ]
+        
+        self.checkers = [:]
+        
+        for module in authCheckerModules {
+            for authType in module.getSupportedAuthTypes() {
+                self.checkers[authType] = module
+            }
+        }
+
     }
     
     func boot(routes: RoutesBuilder) throws {
