@@ -18,18 +18,8 @@ public func configure(_ app: Application) throws {
     // https://docs.vapor.codes/4.0/errors/#error-middleware
     app.middleware = .init()
     app.middleware.use(MatrixErrorMiddleware())
-
-    /*
-    app.databases.use(.postgres(
-        hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-        port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber,
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database"
-    ), as: .psql)
-    */
     
-    app.views.use(.leaf)
+    //app.views.use(.leaf)
 
     // Use Vapor's built-in passwords with Bcrypt
     app.passwords.use(.bcrypt)
