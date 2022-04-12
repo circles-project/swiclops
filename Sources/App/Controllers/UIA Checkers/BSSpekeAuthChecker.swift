@@ -79,14 +79,33 @@ struct BSSpekeAuthChecker: AuthChecker {
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         
         switch authType {
-        case ENROLL_OPRF, LOGIN_OPRF:
+        case ENROLL_OPRF:
             // Client is just starting the protocol
             // For now these params are universal and hard-coded
             // In the future we would need a database lookup to find the particular params for the given user
             return [
                 "curve" : AnyCodable("curve25519"),
-                "hash_function" : AnyCodable("blake2b"),
+                "hash_function" : AnyCodable("blake2b"), // FIXME Make this actually configurable
                 "phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
+            ]
+        case LOGIN_OPRF:
+            guard let userId = userId else {
+                // If the user wants to log in, we need to know who they claim to be
+                throw MatrixError(status: .badRequest, errcode: .missingParam, error: "Missing parameter: user id")
+            }
+            let maybeRecord = try await BsspekeUser.query(on: req.db)
+                .filter(\.$id == userId)
+                .first()
+            guard let rec = maybeRecord else {
+                // User doesn't seem to be enrolled with us.
+                // If they ever actually try to authenticate with us, then we will throw an exception
+                // But for now, we simply return no params
+                return nil
+            }
+            return [
+                "curve": AnyCodable(rec.curve),
+                "hash_function": AnyCodable("blake2b"), // FIXME Make this actually configurable
+                "phf_params": AnyCodable(PhfParams(name: rec.phf.name, iterations: rec.phf.iterations, blocks: rec.phf.blocks))
             ]
         case LOGIN_VERIFY:
             // Client should have already completed the ..._OPRF stage
@@ -101,10 +120,14 @@ struct BSSpekeAuthChecker: AuthChecker {
                   let B = await session.getData(for: authType+".B") as? String
             else {
                 //throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Auth stage for OPRF must be completed before completing BS-SPEKE auth")
-                // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet
+                // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet.
+                // Or maybe we're advertising BS-SPEKE to everyone, but this user just isn't enrolled.
                 return nil
             }
-            return ["blind_salt": AnyCodable(blindSalt), "B": AnyCodable(B)]
+            return [
+                "blind_salt": AnyCodable(blindSalt),
+                "B": AnyCodable(B)
+            ]
         case ENROLL_SAVE:
             // Client should have already completed the ..._OPRF stage
             // In fact, this is our sort-of roundabout way of returning the results from that stage
@@ -120,7 +143,9 @@ struct BSSpekeAuthChecker: AuthChecker {
                 // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet
                 return nil
             }
-            return ["blind_salt": AnyCodable(blindSalt)]
+            return [
+                "blind_salt": AnyCodable(blindSalt)
+            ]
         default:
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid BS-SPEKE auth stage \(authType)")
         }
