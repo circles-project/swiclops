@@ -77,6 +77,14 @@ public func configure(_ app: Application) throws {
                           as: .psql)
     }
     
+    app.migrations.add(CreateAcceptedTerms())
+    app.migrations.add(CreateBSSpekeUsers())
+    app.migrations.add(CreatePasswordHashes())
+    app.migrations.add(CreatePendingTokenRegistrations())
+    app.migrations.add(CreateRegistrationTokens())
+    app.migrations.add(CreateSubscriptions())
+    app.migrations.add(CreateUserEmailAddresses())
+    
     let uiaController = UiaController(app: app, config: config.uia)
     
     // register routes

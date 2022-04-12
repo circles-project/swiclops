@@ -37,6 +37,7 @@ final class RegistrationToken: Model {
 
 struct CreateRegistrationTokens: AsyncMigration {
     func prepare(on database: Database) async throws {
+        database.logger.debug("Creating table registration_tokens")
         try await database.schema("registration_tokens")
             .field("token", .string, .identifier(auto: false))
             .field("created_by", .string, .required)

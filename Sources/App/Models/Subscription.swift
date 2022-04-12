@@ -46,6 +46,7 @@ final class Subscription: Model {
 
 struct CreateSubscriptions: AsyncMigration {
     func prepare(on database: Database) async throws {
+        database.logger.debug("Creating table subscriptions")
         try await database.schema("subscriptions")
             .id()
             .field("user_id", .string, .required)

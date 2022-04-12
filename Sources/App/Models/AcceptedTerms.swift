@@ -38,6 +38,7 @@ final class AcceptedTerms: Model, Content {
 
 struct CreateAcceptedTerms: AsyncMigration {
     func prepare(on database: Database) async throws {
+        database.logger.debug("Creating table accepted_terms")
         try await database.schema("accepted_terms")
             .id()
             .field("user_id", .string, .required)

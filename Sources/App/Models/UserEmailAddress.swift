@@ -39,6 +39,7 @@ final class UserEmailAddress: Model, Content {
 
 struct CreateUserEmailAddresses: AsyncMigration {
     func prepare(on database: Database) async throws {
+        database.logger.debug("Creating table user_email_addresses")
         try await database.schema("user_email_addresses")
             .id()
             .field("email", .string, .required)
