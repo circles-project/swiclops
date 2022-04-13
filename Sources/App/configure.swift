@@ -28,16 +28,24 @@ public func configure(_ app: Application) throws {
     let testConfigString = """
     uia:
       homeserver: "https://matrix.kombucha.social/"
+      default_flows:
+        - stages: ["m.login.password"]
+        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
       routes:
-        - path: "/_matrix/client/r0/login"
+        - path: "/login"
           method: "POST"
           flows:
             - stages: ["m.login.dummy", "m.login.foo"]
             - stages: ["m.login.terms", "m.login.password"]
-        - path: "/_matrix/client/r0/register"
+        - path: "/register"
           method: "POST"
           flows:
             - stages: ["m.login.registration_token", "m.login.terms", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.password"]
+        - path: "/account/auth"
+          method: "POST"
+          flows:
+            - stages: ["m.login.password"]
+            - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
             
     #database:
     #  type: postgres
