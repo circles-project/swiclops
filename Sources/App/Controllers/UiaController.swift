@@ -8,8 +8,6 @@
 import Vapor
 import Yams
 import AnyCodable
-import Network
-import NIOTransportServices
 
 extension HTTPMethod: Codable { }
 
