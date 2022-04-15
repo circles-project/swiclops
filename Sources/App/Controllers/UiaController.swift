@@ -125,15 +125,41 @@ struct UiaController: RouteCollection {
     }
     
     private func _getUserId(req: Request) async throws -> String? {
-        guard let bearerHeader = req.headers.bearerAuthorization else {
-            return nil
+        if let bearerHeader = req.headers.bearerAuthorization {
+            // FIXME: Move the bearer auth into a Vapor middleware https://docs.vapor.codes/4.0/authentication/#bearer
+            let token = bearerHeader.token
+            // Lookup the userId based on the bearer token
+            // We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
+            // We should probably also cache the access token locally, so we don't constantly batter that endpoint
+            let uri = URI(scheme: config.homeserver.scheme,
+                          host: config.homeserver.host,
+                          path: "_matrix/client/v3/account/whoami")
+            let hsResponse = try await req.client.get(uri, headers: req.headers)
+            if hsResponse.status == .ok {
+                // The homeserver knows who we are
+                // Decode the response to extract the user id
+                guard let whoami = try? hsResponse.content.decode(WhoamiResponseBody.self) else {
+                    throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to look up user id from access token")
+                }
+                return whoami.userId
+            } else {
+                // Homeserver didn't give us a user id -- guess we're not anybody
+                return nil
+            }
+        } else {
+            // Maybe the user is trying to log in, and they sent the user id in the request
+            if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
+                if loginRequest.identifier.type == "m.id.user" {
+                    retrun loginRequest.identifier.user
+                } else {
+                    return nil
+                }
+                // FIXME: Add support for looking up user id from a 3pid like an email address
+            }
         }
-        let token = bearerHeader.token
-        // FIXME Lookup the userId based on the bearer token
-        //       We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
-        //       We should probably also cache the access token locally, so we don't constantly batter that endpoint
-        // FIXME For now we fake it :)
-        return "@alice:example.org"
+        // Every attempt to find a user id has failed
+        // Guess we don't know who the heck this is after all...
+        return nil
     }
     
     private func _getRequiredFlows(flows: [UiaFlow], for user: String?, making request: Request) async throws -> [UiaFlow] {
