@@ -150,7 +150,7 @@ struct UiaController: RouteCollection {
             // Maybe the user is trying to log in, and they sent the user id in the request
             if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
                 if loginRequest.identifier.type == "m.id.user" {
-                    retrun loginRequest.identifier.user
+                    return loginRequest.identifier.user
                 } else {
                     return nil
                 }
