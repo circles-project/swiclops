@@ -61,7 +61,7 @@ struct UiaController: RouteCollection {
             TokenRegistrationAuthChecker(),
             EmailAuthChecker(app: app),
             FooAuthChecker(),
-            BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32)),
+            BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32)), // FIXME: Read the server id and secret key from a config file
         ]
         self.checkers = [:]
         for module in authCheckerModules {
