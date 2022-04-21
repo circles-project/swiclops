@@ -10,9 +10,9 @@ import AnyCodable
 
 struct AppStoreSubscriptionChecker: AuthChecker {
     let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple"
-    let productIds = ["org.futo.circles1month", "org.futo.circles1year"] // FIXME: Load this from the config file
-    let secret: String = "FIXME"
-    let environment: AppStore.Environment = .sandbox
+    let productIds: [String] // = ["org.futo.circles1month", "org.futo.circles1year"] // FIXME: Load this from the config file
+    let secret: String
+    let environment: AppStore.Environment
     
     struct AppStoreUIARequest: Content {
         struct AuthDict: UiaAuthDict {
@@ -22,6 +22,12 @@ struct AppStoreSubscriptionChecker: AuthChecker {
             var receipt: String
         }
         var auth: AuthDict
+    }
+    
+    init(productIds: [String], secret: String, environment: AppStore.Environment) {
+        self.productIds = productIds
+        self.secret = secret
+        self.environment = environment
     }
     
     func getSupportedAuthTypes() -> [String] {
