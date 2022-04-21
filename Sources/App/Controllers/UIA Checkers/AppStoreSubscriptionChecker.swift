@@ -10,7 +10,7 @@ import AnyCodable
 
 struct AppStoreSubscriptionChecker: AuthChecker {
     let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple"
-    let productIds: [String] // = ["org.futo.circles1month", "org.futo.circles1year"] // FIXME: Load this from the config file
+    let productIds: [String] // = ["org.futo.circles1month", "org.futo.circles1year"]
     let secret: String
     let environment: AppStore.Environment
     
@@ -41,7 +41,7 @@ struct AppStoreSubscriptionChecker: AuthChecker {
     }
     
     // Return the expiration date for the purchase of `productId`
-    private func _validateReceipt(_ receipt: String, for productId: String, with req: Request) async throws -> Date {
+    private func _validateReceiptAndGetExpirationDate(_ receipt: String, for productId: String, with req: Request) async throws -> Date {
         let client = req.client
         let uri = URI(string: environment.url)
         
@@ -92,7 +92,7 @@ struct AppStoreSubscriptionChecker: AuthChecker {
         }
         
         // Get the expiration date for the given product
-        let expirationDate = try await _validateReceipt(receipt, for: productId, with: req)
+        let expirationDate = try await _validateReceiptAndGetExpirationDate(receipt, for: productId, with: req)
         
         // If we're still here, then there was a valid purchase of the given productId,
         // with a future expiration date of expirationDate
