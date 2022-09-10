@@ -40,13 +40,17 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         let token = auth.token
         let sessionId = auth.session
         
+        req.logger.debug("TokenRegistration: Checking auth for session [\(sessionId)] with token [\(token)]")
+        
         guard let tokenRecord = try? await RegistrationToken.query(on: req.db)
             .filter(\.$id == token)
             .first()
         else {
             // No such token
             // Request denied.
-            throw Abort(.forbidden)
+            req.logger.warning("TokenRegistration: Error: No such token [\(token)]")
+            //throw Abort(.forbidden)
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "No such token")
         }
 
         if tokenRecord.isExpired {

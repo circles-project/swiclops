@@ -220,7 +220,7 @@ struct UiaController: RouteCollection {
 
     // FIXME Find a better way to cache the list of actually required & useful flows inside the UIA session
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
-        
+                
         let userId = try await _getUserId(req: req)
                 
         // Does this request already have a session associated with it?
@@ -275,6 +275,7 @@ struct UiaController: RouteCollection {
         }
 
         let authType = auth.type
+        req.logger.debug("Request is for auth type [\(authType)]")
         // Is this one of the auth types that are required here?
         let allStages = requiredFlows.reduce( Set<String>() ) { (curr,next) in
             curr.union(Set(next.stages))
@@ -310,7 +311,7 @@ struct UiaController: RouteCollection {
             // * Was this the final stage that we needed?
             // * Or are there still more to be completed?
             let completed = await session.getCompleted()
-            //req.logger.debug("UIA controller: Got completed = \(completed)")
+            req.logger.debug("UIA controller: Got completed = \(completed)")
             let completedStages: Set<String> = .init(completed)
             req.logger.debug("UIA controller: Completed stages = \(completedStages)")
             for flow in requiredFlows {

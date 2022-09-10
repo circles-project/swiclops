@@ -41,6 +41,8 @@ struct EmailAuthChecker: AuthChecker {
         var auth: AuthDict
     }
     
+    // FIXME: Add an email sender helper here
+    //        Then we can support sending email through different services
     init(app: Application) {
         self.app = app
     }

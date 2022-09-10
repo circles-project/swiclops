@@ -12,4 +12,7 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(res.body.string, "Hello, world!")
         })
     }
+    
+    // For more tests, see the Python section in Cbsspeke
+    
 }

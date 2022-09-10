@@ -16,7 +16,8 @@ struct Postmark {
                           html: String,
                           text: String,
                           client: Client,
-                          token: String
+                          token: String,
+                          messageStream: String? = nil
     ) async throws -> SingleEmailResponseBody
     {
         let headers = HTTPHeaders([
@@ -29,7 +30,8 @@ struct Postmark {
             to: to,
             subject: subject,
             htmlBody: html,
-            textBody: text
+            textBody: text,
+            messageStream: messageStream
         )
         
         let response = try await client.post("https://api.postmarkapp.com/email", headers: headers) { req in

@@ -12,7 +12,7 @@ struct CreateBSSpekeUsers: AsyncMigration {
     func prepare(on database: Database) async throws {
         database.logger.debug("Creating table bsspeke_users")
         try await database.schema("bsspeke_users")
-            .id()
+            //.id()
             .field("user_id", .string, .identifier(auto: false))
             .field("curve", .string, .required)
             .field("p", .string, .required)

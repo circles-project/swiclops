@@ -12,7 +12,7 @@ public final class MatrixErrorMiddleware: Middleware {
     
     public func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
         return next.respond(to: request).flatMapErrorThrowing { error in
-            request.logger.debug("Middleware says Hi")
+            //request.logger.debug("Middleware says Hi")
 
             switch error {
                                 
