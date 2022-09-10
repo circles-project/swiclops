@@ -86,6 +86,9 @@ public func configure(_ app: Application) throws {
     // register routes
     try app.register(collection: uiaController)
     try routes(app)
+    
+    // add commands
+    app.commands.use(CreateTokenCommand(), as: "createToken")
 }
 
 struct PostgresDatabaseConfig: Decodable {
