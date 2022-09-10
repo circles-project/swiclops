@@ -9,6 +9,7 @@ import Vapor
 import Fluent
 
 final class RegistrationToken: Model {
+    
     static let schema = "registration_tokens"
     
     @ID(custom: "token", generatedBy: .user)
@@ -32,5 +33,21 @@ final class RegistrationToken: Model {
         }
         
         return false
+    }
+    
+    init() {
+        
+    }
+    
+    init(id: String? = nil, createdBy: String, slots: Int, expiresAt: Date? = nil) {
+        self.id = id ?? String(format: "%04x-%04x-%04x-%04x",
+                               UInt16.random(),
+                               UInt16.random(),
+                               UInt16.random(),
+                               UInt16.random())
+        self.createdBy = createdBy
+        self.slots = slots
+        self.createAt = Date()
+        self.expiresAt = expiresAt
     }
 }
