@@ -15,7 +15,7 @@ struct Postmark {
                           subject: String,
                           html: String,
                           text: String,
-                          client: Client,
+                          for req: Request,
                           token: String,
                           messageStream: String? = nil
     ) async throws -> SingleEmailResponseBody
@@ -34,9 +34,11 @@ struct Postmark {
             messageStream: messageStream
         )
         
-        let response = try await client.post("https://api.postmarkapp.com/email", headers: headers) { req in
-            try req.content.encode(requestBody)
+        req.logger.debug("Sending Postmark request")
+        let response = try await req.client.post("https://api.postmarkapp.com/email", headers: headers) { clientReq in
+            try clientReq.content.encode(requestBody)
         }
+        req.logger.debug("Got Postmark response with status \(response.status.code): \(response.status)")
 
         let responseBody = try response.content.decode(SingleEmailResponseBody.self)
         return responseBody

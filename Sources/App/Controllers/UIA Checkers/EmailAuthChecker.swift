@@ -17,9 +17,9 @@ struct EmailAuthChecker: AuthChecker {
     let LOGIN_REQUEST_TOKEN = "m.login.email.request_token"
     let LOGIN_SUBMIT_TOKEN = "m.login.email.submit_token"
     
-    let FROM_ADDRESS = "Circles <circles-noreply@futo.org>"
+    let FROM_ADDRESS = "circuli@circu.li"
     
-    let POSTMARK_TOKEN = "FIXME"
+    let POSTMARK_TOKEN = "d40f5b8c-d9b2-48d1-b215-050fb9903ba5"
     
     let app: Application
     
@@ -85,6 +85,8 @@ struct EmailAuthChecker: AuthChecker {
         
         let auth = uiaRequest.auth
         let userEmail = auth.email
+        
+        req.logger.debug("User requesting a token for email [\(userEmail)]")
 
         if authType == LOGIN_REQUEST_TOKEN {
             // Ok we're trying to log in some user.  Who is it?
@@ -105,19 +107,20 @@ struct EmailAuthChecker: AuthChecker {
             }
         } else {
             guard authType == ENROLL_REQUEST_TOKEN else {
-                throw Abort(.badRequest)
+                throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Bad auth type [\(authType)]")
             }
         }
         
         // Generate a random 6-digit code
         let code = String( (0..<6).map { _ in "0123456789".randomElement()! } )
         // Send an email to the given address containing the code
-        let postmarkResponse = try await Postmark.sendEmail(from: FROM_ADDRESS,
+        let postmarkResponse = try await Postmark.sendEmail(
+                                     from: FROM_ADDRESS,
                                      to: userEmail,
-                                     subject: "\(code) is your Circles verification code",
-                                     html: "<html><body>Your verification code for Circles is: <b>\(code)</b>.</body></html>",
-                                     text: "Your verification code for Circles is: \(code)",
-                                     client: req.client,
+                                     subject: "\(code) is your Circuli verification code",
+                                     html: "<html><body>Your verification code for Circuli is: <b>\(code)</b>.</body></html>",
+                                     text: "Your verification code for Circuli is: \(code)",
+                                     for: req,
                                      token: POSTMARK_TOKEN)
         
         if postmarkResponse.errorCode != 0 {
