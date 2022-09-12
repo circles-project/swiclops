@@ -88,7 +88,8 @@ public func configure(_ app: Application) throws {
     try routes(app)
     
     // add commands
-    app.commands.use(CreateTokenCommand(), as: "createToken")
+    app.commands.use(CreateTokenCommand(), as: "create-token")
+    app.commands.use(ListTokensCommand(), as: "list-tokens")
 }
 
 struct PostgresDatabaseConfig: Decodable {

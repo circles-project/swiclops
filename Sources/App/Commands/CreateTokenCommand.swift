@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import Fluent
 
 struct CreateTokenCommand: Command {
     var help: String = "Creates a new registration token"
@@ -20,13 +21,13 @@ struct CreateTokenCommand: Command {
         @Argument(name: "slots")
         var slots: Int
         
-        @Option(name: "lifetime")
+        @Option(name: "lifetime", short: "l")
         var lifetime: Int?
         
     }
 
     func run(using context: CommandContext, signature: Signature) throws {
-        //context.console.print("Hello, world!")
+        context.console.print("Creating a registration token")
         
         let logger = context.application.logger
         let db = context.application.db
@@ -43,7 +44,7 @@ struct CreateTokenCommand: Command {
                                       slots: signature.slots,
                                       expiresAt: expirationDate)
         
-        logger.info("Creating token [\(token.id)]")
+        logger.info("Creating token [\(token.id!)]")
         
         let result = token.save(on: db)
 
