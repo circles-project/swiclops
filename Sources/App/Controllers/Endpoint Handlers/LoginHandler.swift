@@ -51,7 +51,7 @@ struct LoginHandler: EndpointHandler {
         // We need to craft a /login request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: req.url.path)
-        let proxyRequestBody = LoginRequestBody(identifier: clientRequest.identifier, type: "swiclops.password", password: "hunter2")
+        let proxyRequestBody = LoginRequestBody(identifier: clientRequest.identifier, type: "swiclops.password", password: "hunter2") // FIXME: Update this to use https://github.com/devture/matrix-synapse-shared-secret-auth
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
         return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
