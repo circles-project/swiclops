@@ -11,8 +11,11 @@ import Vapor
 final class PendingTokenRegistration: Model {
     static let schema = "pending_token_registrations"
     
-    @ID(custom: "token", generatedBy: .user)
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
+    
+    @Field(key: "token")
+    var token: String
     
     @Field(key: "session")
     var session: String
@@ -22,9 +25,11 @@ final class PendingTokenRegistration: Model {
     
     init() {}
     
-    init(id: String, session: String) {
+    init(id: UUID? = nil, token: String, session: String) {
         self.id = id
+        self.token = token
         self.session = session
+        self.createdAt = Date()
     }
     
 }

@@ -52,9 +52,11 @@ struct TokenRegistrationAuthChecker: AuthChecker {
             //throw Abort(.forbidden)
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "No such token")
         }
+        req.logger.debug("Found registration token")
 
         if tokenRecord.isExpired {
-            throw Abort(.forbidden)
+            req.logger.warning("Token is expired")
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Token is expired")
         }
         
         let numExistingRegistrations = try await Subscription.query(on: req.db)
@@ -64,28 +66,34 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         
         if tokenRecord.slots <= numExistingRegistrations {
             // This token is all used up
-            throw Abort(.forbidden)
+            req.logger.warning("Token is used up")
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Token is used up")
         }
         
         // Ok, it looks like we've got a good token
         // But we also need to check whether there are already too many pending registrations for it
         let oneHourAgo = Date(timeIntervalSinceNow: -3600) // One hour ago
         let numPendingRegistrations = try await PendingTokenRegistration.query(on: req.db)
-            .filter(\.$id == token)
+            .filter(\.$token == token)
             .filter(\.$createdAt > oneHourAgo)
             .count()
         
         if tokenRecord.slots <= numExistingRegistrations + numPendingRegistrations {
-            throw Abort(.forbidden)
+            req.logger.warning("No slots left on token")
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "No slots left on token")
         }
         
         // Add ourselves to the list of pending registrations for this token
-        let myPendingRegistration = PendingTokenRegistration(id: token, session: sessionId)
+        req.logger.debug("Creating pending registration")
+        let myPendingRegistration = PendingTokenRegistration(token: token, session: sessionId)
+        req.logger.debug("Saving pending registration")
         try await myPendingRegistration.create(on: req.db)
         
         // Finally, add the token to our UIA session state storage
         let session = req.uia.connectSession(sessionId: sessionId)
         await session.setData(for: "registration_token", value: token)
+        
+        req.logger.debug("Token registration success")
         
         return true
     }
@@ -119,7 +127,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         
         try await req.db.transaction { transaction in
             try await PendingTokenRegistration.query(on: transaction)
-                .filter(\.$id == token)
+                .filter(\.$token == token)
                 .filter(\.$session == sessionId)
                 .delete()
             
