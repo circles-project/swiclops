@@ -12,7 +12,8 @@ struct CreatePendingTokenRegistrations: AsyncMigration {
     func prepare(on database: Database) async throws {
         database.logger.debug("Creating table pending_token_registrations")
         try await database.schema("pending_token_registrations")
-            .field("token", .string, .identifier(auto: false))
+            .id()
+            .field("token", .string, .required)
             .field("session", .string, .required)
             .field("created_at", .datetime, .required)
             .unique(on: "token", "session")
