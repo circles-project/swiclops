@@ -125,8 +125,10 @@ struct EmailAuthChecker: AuthChecker {
         
         if postmarkResponse.errorCode != 0 {
             // Sending the email through Postmark has failed
+            req.logger.warning("Postmark returned error code \(postmarkResponse.errorCode)")
             throw Abort(.internalServerError)
         }
+        req.logger.debug("Postmark email was successful")
         
         // Save the code that we sent, so we can check it later
         let session = req.uia.connectSession(sessionId: auth.session)
@@ -151,6 +153,8 @@ struct EmailAuthChecker: AuthChecker {
         let code = auth.token
         
         let session = req.uia.connectSession(sessionId: auth.session)
+        
+        req.logger.debug("User submitted email token [\(code)] for session [\(session)]")
         
         switch authType {
         case ENROLL_SUBMIT_TOKEN:

@@ -302,8 +302,10 @@ struct UiaController: RouteCollection {
         }
         
         
-        let success = try await checker.check(req: req, authType: authType)
-        if success {
+        //let success = try await checker.check(req: req, authType: authType)
+        //if success {
+        if let success = try? await checker.check(req: req, authType: authType),
+        success == true {
             // Ok cool, we cleared one stage
             // * Mark the stage as complete
             req.logger.debug("UIA controller: Marking stage \(authType) as complete")

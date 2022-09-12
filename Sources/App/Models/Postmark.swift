@@ -40,7 +40,10 @@ struct Postmark {
         }
         req.logger.debug("Got Postmark response with status \(response.status.code): \(response.status)")
 
-        let responseBody = try response.content.decode(SingleEmailResponseBody.self)
+        guard let responseBody = try? response.content.decode(SingleEmailResponseBody.self) else {
+            req.logger.error("Failed to decode Postmark response")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to decode email provider response")
+        }
         return responseBody
     }
 
@@ -114,7 +117,7 @@ struct Postmark {
     
     struct SingleEmailResponseBody: Content {
         var to: String
-        var submittedAt: Date
+        var submittedAt: String // FIXME: This should really be a Date but it's ISO8601 with fractional seconds, so blegh https://useyourloaf.com/blog/swift-codable-with-custom-dates/
         var messageId: String
         var errorCode: Int
         var message: String
