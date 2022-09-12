@@ -154,7 +154,7 @@ struct EmailAuthChecker: AuthChecker {
         
         let session = req.uia.connectSession(sessionId: auth.session)
         
-        req.logger.debug("User submitted email token [\(code)] for session [\(session)]")
+        req.logger.debug("User submitted email token [\(code)] for session [\(auth.session)]")
         
         switch authType {
         case ENROLL_SUBMIT_TOKEN:

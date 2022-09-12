@@ -93,9 +93,6 @@ struct UiaController: RouteCollection {
             matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
                 let policyFlows = flows[endpoint] ?? defaultFlows
                 
-                // FIXME Find some way to provide the userId to the UIA handling subsystem
-                //       -- Or just have it figure that out for itself ???
-                
                 try await handleUIA(req: req, flows: policyFlows)
                 
                 return try await handler.handle(req: req)
