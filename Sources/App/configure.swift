@@ -24,13 +24,13 @@ public func configure(_ app: Application) throws {
     // Use Vapor's built-in passwords with Bcrypt
     app.passwords.use(.bcrypt)
     
-    //let config = try AppConfig(filename: "swiclops.yaml")
+    /*
     let testConfigString = """
     uia:
       domain: "circu.li"
-      homeserver: "https://matrix.kombucha.social/"
+      homeserver: "https://matrix.circu.li/"
       registration_shared_secret: "hunter2"
-      bsspeke_oprf_key: "0123456789abcdef0123456789abcdef"
+      bsspeke_oprf_secret: "0123456789abcdef0123456789abcdef"
       default_flows:
         - stages: ["m.login.password"]
         - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
@@ -62,6 +62,14 @@ public func configure(_ app: Application) throws {
       filename: "swiclops.sqlite"
     """
     let config = try AppConfig(string: testConfigString)
+    */
+
+    guard let config = try? _loadConfiguration() else {
+        app.logger.error("No config file found")
+        throw Abort(.internalServerError)
+    }
+    
+    // database
     switch config.database {
     case .sqlite(let sqliteConfig):
         app.logger.debug("Using SQLite database")
@@ -76,6 +84,7 @@ public func configure(_ app: Application) throws {
                           as: .psql)
     }
     
+    // migrations
     app.migrations.add(CreateAcceptedTerms())
     app.migrations.add(CreateBSSpekeUsers())
     app.migrations.add(CreatePasswordHashes())
@@ -84,15 +93,20 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateSubscriptions())
     app.migrations.add(CreateUserEmailAddresses())
     
+    // routes
     let uiaController = UiaController(app: app, config: config.uia)
-    
-    // register routes
     try app.register(collection: uiaController)
     try routes(app)
     
-    // add commands
+    // commands
     app.commands.use(CreateTokenCommand(), as: "create-token")
     app.commands.use(ListTokensCommand(), as: "list-tokens")
 }
 
-
+private func _loadConfiguration() throws -> AppConfig {
+    if let systemConfig = try? AppConfig(filename: "/etc/swiclops.yml") {
+        return systemConfig
+    }
+    let localConfig = try AppConfig(filename: "swiclops.yml")
+    return localConfig
+}
