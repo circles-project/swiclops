@@ -61,6 +61,15 @@ struct RegistrationHandler: EndpointHandler {
     var endpoints: [Endpoint]
     var sharedSecret: String
     
+    init(app: Application, homeserver: URL, sharedSecret: String) {
+        self.app = app
+        self.homeserver = homeserver
+        self.endpoints = [
+            .init(.POST, "/register"),
+        ]
+        self.sharedSecret = sharedSecret
+    }
+    
     func handle(req: Request) async throws -> Response {
     
         
@@ -95,15 +104,6 @@ struct RegistrationHandler: EndpointHandler {
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
         return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
-    }
-    
-    init(app: Application, homeserver: URL, sharedSecret: String) {
-        self.app = app
-        self.homeserver = homeserver
-        self.endpoints = [
-            .init(.POST, "/register"),
-        ]
-        self.sharedSecret = sharedSecret
     }
     
 }

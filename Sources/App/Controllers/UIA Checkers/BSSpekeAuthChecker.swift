@@ -9,6 +9,7 @@ import Vapor
 import Fluent
 import AnyCodable
 import BlindSaltSpeke
+import CryptoKit
 
 struct BSSpekeAuthChecker: AuthChecker {
     let LOGIN_OPRF = "m.login.bsspeke-ecc.oprf"
@@ -65,10 +66,11 @@ struct BSSpekeAuthChecker: AuthChecker {
     let serverId: String
     let oprfKey: [UInt8]
     
-    init(app: Application, serverId: String, oprfKey: [UInt8]) {
+    init(app: Application, serverId: String, oprfSecret: String) {
         self.app = app
         self.serverId = serverId
-        self.oprfKey = oprfKey
+        // The OPRF secret isn't necessarily a valid key.  Hash it with SHA256 to get a key of the proper form.
+        self.oprfKey = Array(SHA256.hash(data: oprfSecret.data(using: .utf8)!))
     }
     
     

@@ -23,7 +23,10 @@ struct UiaController: RouteCollection {
     var defaultProxyHandler: EndpointHandler
     
     struct Config: Codable {
+        var domain: String
         var homeserver: URL
+        var registrationSharedSecret: String
+        var bsspekeOprfSecret: String
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         
@@ -34,7 +37,10 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
+            case bsspekeOprfSecret = "bsspeke_oprf_secret"
+            case domain
             case homeserver
+            case registrationSharedSecret = "registration_shared_secret"
             case routes
             case defaultFlows = "default_flows"
         }
@@ -61,7 +67,8 @@ struct UiaController: RouteCollection {
             TokenRegistrationAuthChecker(),
             EmailAuthChecker(app: app),
             FooAuthChecker(),
-            BSSpekeAuthChecker(app: app, serverId: "circu.li", oprfKey: .init(repeating: 0xff, count: 32)), // FIXME: Read the server id and secret key from a config file
+            BSSpekeAuthChecker(app: app, serverId: config.domain, oprfSecret: config.bsspekeOprfSecret),
+
         ]
         self.checkers = [:]
         for module in authCheckerModules {
@@ -74,6 +81,7 @@ struct UiaController: RouteCollection {
         self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: self.config.homeserver)
         let endpointHandlerModules: [EndpointHandler] = [
             LoginHandler(app: self.app, homeserver: self.config.homeserver),
+            RegistrationHandler(app: self.app, homeserver: self.config.homeserver, sharedSecret: self.config.registrationSharedSecret),
         ]
         self.handlers = [:]
         for module in endpointHandlerModules {
