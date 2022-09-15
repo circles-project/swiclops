@@ -6,7 +6,7 @@
 //
 
 import Vapor
-import CryptoKit
+import Crypto
 
 struct BasicRegisterRequestBody: Content {
     var deviceId: String?
