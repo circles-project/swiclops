@@ -9,7 +9,7 @@ import Vapor
 import Fluent
 import AnyCodable
 import BlindSaltSpeke
-import CryptoKit
+import Crypto
 
 struct BSSpekeAuthChecker: AuthChecker {
     let LOGIN_OPRF = "m.login.bsspeke-ecc.oprf"
