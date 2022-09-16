@@ -11,6 +11,7 @@ import Yams
 
 
 struct AppConfig: Decodable {
+    var admin: AdminApiController.Config
     var uia: UiaController.Config
     var database: DatabaseConfig
     

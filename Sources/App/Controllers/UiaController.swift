@@ -17,7 +17,7 @@ struct UiaController: RouteCollection {
     var app: Application
     var config: Config
     var checkers: [String: AuthChecker]
-    var handlers: [Endpoint: EndpointHandler]
+    var handlers: [Endpoint: EndpointHandler]    // Handlers for the client-server API
     var flows: [Endpoint: [UiaFlow]]
     var defaultFlows: [UiaFlow]
     var defaultProxyHandler: EndpointHandler

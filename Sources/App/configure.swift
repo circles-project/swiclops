@@ -96,7 +96,9 @@ public func configure(_ app: Application) throws {
     // routes
     let uiaController = UiaController(app: app, config: config.uia)
     try app.register(collection: uiaController)
-    try routes(app)
+    let adminController = AdminApiController(app: app, config: config.admin)
+    try app.register(collection: adminController)
+    //try routes(app)
     
     // commands
     app.commands.use(CreateTokenCommand(), as: "create-token")
