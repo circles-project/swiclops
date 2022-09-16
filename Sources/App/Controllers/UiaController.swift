@@ -82,6 +82,9 @@ struct UiaController: RouteCollection {
         let endpointHandlerModules: [EndpointHandler] = [
             LoginHandler(app: self.app, homeserver: self.config.homeserver),
             RegistrationHandler(app: self.app, homeserver: self.config.homeserver, config: self.config.registration),
+            AccountDeactivateHandler(app: self.app, proxy: self.defaultProxyHandler),
+            Account3PidHandler(),
+            AccountPasswordHandler(),
         ]
         self.handlers = [:]
         for module in endpointHandlerModules {
