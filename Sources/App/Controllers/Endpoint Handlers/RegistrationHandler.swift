@@ -59,15 +59,25 @@ struct RegistrationHandler: EndpointHandler {
     let app: Application
     let homeserver: URL
     var endpoints: [Endpoint]
-    var sharedSecret: String
+    var config: Config
     
-    init(app: Application, homeserver: URL, sharedSecret: String) {
+    struct Config: Codable {
+        var sharedSecret: String
+        var useAdminApi: Bool
+        
+        enum CodingKeys: String, CodingKey {
+            case sharedSecret = "shared_secret"
+            case useAdminApi = "use_admin_api"
+        }
+    }
+    
+    init(app: Application, homeserver: URL, config: Config) {
         self.app = app
         self.homeserver = homeserver
         self.endpoints = [
             .init(.POST, "/register"),
         ]
-        self.sharedSecret = sharedSecret
+        self.config = config
     }
     
     func handle(req: Request) async throws -> Response {
@@ -80,30 +90,39 @@ struct RegistrationHandler: EndpointHandler {
         
         // We don't really handle /register requests all by ourselves
         // We handle all the authentication parts, but the "real" homeserver is the one who actually creates the account
-        // We need to craft a /register request of the proper form, so that the homeserver can know that it came from us
-        // -- Here we're using the shared secret approach from Synapse https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
+        // Now that the UIA is done, we need to craft a /register request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
         
-        // First get a fresh nonce from the homeserver
-        let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
-        let nonceResponse = try await req.client.get(nonceURI)
-        struct NonceResponseBody: Content {
-            var nonce: String
-        }
-        guard let nonceResponseBody = try? nonceResponse.content.decode(NonceResponseBody.self) else {
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get nonce")
-        }
-        let nonce = nonceResponseBody.nonce
-        
-        // Build the shared-secret request from the normal request and the crypto material
-        let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.sharedSecret)
-        
-        // We have to use the special admin API, not the normal client-server endpoint
-        let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
+        if self.config.useAdminApi {
+            // -- Here we're using the shared secret approach from the Synapse admin API https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
+            
+            // First get a fresh nonce from the homeserver
+            let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
+            let nonceResponse = try await req.client.get(nonceURI)
+            struct NonceResponseBody: Content {
+                var nonce: String
+            }
+            guard let nonceResponseBody = try? nonceResponse.content.decode(NonceResponseBody.self) else {
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get nonce")
+            }
+            let nonce = nonceResponseBody.nonce
+            
+            // Build the shared-secret request from the normal request and the crypto material
+            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
+            
+            // We have to use the special admin API, not the normal client-server endpoint
+            let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
 
-        let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
-        let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
-        return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
+            let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
+            let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
+            return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
+        }
+        else {
+            // Not using the admin API
+            // Here we forward the request to the normal CS API endpoint, with m.login.dummy for the UIA
+            
+            throw Abort(.notImplemented)
+        }
     }
     
 }

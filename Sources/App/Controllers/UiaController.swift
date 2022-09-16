@@ -25,7 +25,7 @@ struct UiaController: RouteCollection {
     struct Config: Codable {
         var domain: String
         var homeserver: URL
-        var registrationSharedSecret: String
+        var registration: RegistrationHandler.Config
         var bsspekeOprfSecret: String
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
@@ -40,7 +40,7 @@ struct UiaController: RouteCollection {
             case bsspekeOprfSecret = "bsspeke_oprf_secret"
             case domain
             case homeserver
-            case registrationSharedSecret = "registration_shared_secret"
+            case registration
             case routes
             case defaultFlows = "default_flows"
         }
@@ -81,7 +81,7 @@ struct UiaController: RouteCollection {
         self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: self.config.homeserver)
         let endpointHandlerModules: [EndpointHandler] = [
             LoginHandler(app: self.app, homeserver: self.config.homeserver),
-            RegistrationHandler(app: self.app, homeserver: self.config.homeserver, sharedSecret: self.config.registrationSharedSecret),
+            RegistrationHandler(app: self.app, homeserver: self.config.homeserver, config: self.config.registration),
         ]
         self.handlers = [:]
         for module in endpointHandlerModules {
