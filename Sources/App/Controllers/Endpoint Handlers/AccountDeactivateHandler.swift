@@ -24,7 +24,7 @@ struct AccountDeactivateHandler: EndpointHandler {
         // 1. Deactivate the user in all of our authentication modules
         throw Abort(.notImplemented)
         // 2. Proxy the request on to the real homeserver so the account can be deactivated there as well
-        proxy.handle(req: req)
+        return try await proxy.handle(req: req)
     }
     
 }
