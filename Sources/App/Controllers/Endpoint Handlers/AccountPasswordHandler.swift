@@ -10,7 +10,7 @@ import Fluent
 
 struct AccountPasswordHandler: EndpointHandler {
     var endpoints: [Endpoint] = [
-        .init(.POST, "/_matrix/client/:version/account/password")
+        .init(.POST, "/account/password")
     ]
     
     func handle(req: Request) async throws -> Response {

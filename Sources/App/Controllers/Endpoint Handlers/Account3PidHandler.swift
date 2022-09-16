@@ -10,9 +10,9 @@ import Fluent
 
 struct Account3PidHandler: EndpointHandler {
     var endpoints: [Endpoint] = [
-        .init(.GET, "/_matrix/client/:version/account/3pid"),
-        .init(.POST, "/_matrix/client/:version/account/3pid/add"),
-        .init(.POST, "/_matrix/client/:version/account/3pid/delete"),
+        .init(.GET, "/account/3pid"),
+        .init(.POST, "/account/3pid/add"),
+        .init(.POST, "/account/3pid/delete"),
     ]
     
     func handle(req: Request) async throws -> Response {
