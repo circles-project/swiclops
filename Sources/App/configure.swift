@@ -106,7 +106,7 @@ public func configure(_ app: Application) throws {
 }
 
 private func _loadConfiguration() throws -> AppConfig {
-    if let systemConfig = try? AppConfig(filename: "/etc/swiclops.yml") {
+    if let systemConfig = try? AppConfig(filename: "/etc/swiclops/swiclops.yml") {
         return systemConfig
     }
     let localConfig = try AppConfig(filename: "swiclops.yml")
