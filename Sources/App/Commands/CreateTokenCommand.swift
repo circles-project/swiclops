@@ -46,7 +46,7 @@ struct CreateTokenCommand: Command {
         
         logger.info("Creating token [\(token.id!)]")
         
-        let result = token.save(on: db).wait()
+        token.save(on: db).wait()
 
         logger.info("Done")
     }
