@@ -12,6 +12,8 @@ uia:
   bsspeke:
     curve: "curve25519"
     oprf_secret: "hunter2"
+  email:
+    postmark_token: "hunter2"
   default_flows:
     - stages: ["m.login.password"]
     - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]

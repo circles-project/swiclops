@@ -31,6 +31,7 @@ struct UiaController: RouteCollection {
         var registration: RegistrationHandler.Config
         var bsspeke: BSSpekeAuthChecker.Config
         //var bsspekeOprfSecret: String
+        var email: EmailConfig
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         
@@ -45,6 +46,7 @@ struct UiaController: RouteCollection {
             //case bsspekeOprfSecret = "bsspeke_oprf_secret"
             case bsspeke
             //case domain
+            case email
             //case homeserver
             case registration
             case routes
@@ -74,7 +76,7 @@ struct UiaController: RouteCollection {
             PasswordAuthChecker(app: app),
             TermsAuthChecker(app: app),
             TokenRegistrationAuthChecker(),
-            EmailAuthChecker(app: app),
+            EmailAuthChecker(app: app, config: config.email),
             FooAuthChecker(),
             BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
 

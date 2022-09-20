@@ -19,7 +19,7 @@ struct EmailAuthChecker: AuthChecker {
     
     let FROM_ADDRESS = "circuli@circu.li"
     
-    let POSTMARK_TOKEN = "d40f5b8c-d9b2-48d1-b215-050fb9903ba5"
+    let postmarkToken: String
     
     let app: Application
     
@@ -43,8 +43,9 @@ struct EmailAuthChecker: AuthChecker {
     
     // FIXME: Add an email sender helper here
     //        Then we can support sending email through different services
-    init(app: Application) {
+    init(app: Application, config: EmailConfig) {
         self.app = app
+        self.postmarkToken = config.postmarkToken
     }
     
     
@@ -121,7 +122,7 @@ struct EmailAuthChecker: AuthChecker {
                                      html: "<html><body>Your verification code for Circuli is: <b>\(code)</b>.</body></html>",
                                      text: "Your verification code for Circuli is: \(code)",
                                      for: req,
-                                     token: POSTMARK_TOKEN)
+                                     token: postmarkToken)
         
         if postmarkResponse.errorCode != 0 {
             // Sending the email through Postmark has failed
