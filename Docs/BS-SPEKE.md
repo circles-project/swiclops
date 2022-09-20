@@ -16,13 +16,16 @@ The BS-SPEKE module provides a total of four UIA stages:
 
 * Two stages (OPRF and verify) to authenticate a user who is already enrolled
 
-## Initial Parameters
+
+## Stages for Enrollment / Registration
+
+### m.enroll.bsspeke-ecc.oprf
+
+Initial Parameters
 
 In the initial UIA response, the server provides the client with the list of
 cryptographic primitives that it supports, namely the elliptic curve, the
 hash function, and the parameters for the password hashing function.
-
-For example:
 
 ```json
 {
@@ -36,15 +39,108 @@ For example:
 }
 ```
 
-## Stages for Enrollment / Registration
+Request
 
-### m.enroll.bsspeke-ecc.oprf
+```json
+{
+    ...
+    "auth": {
+        "type": "m.enroll.bsspeke-ecc.oprf",
+        "session": "abcdwxyz",
+        "curve": "curve25519",
+        "blind": "23256673567452234134635674567..."
+    }
+}
+```
 
-### m.enroll.bsspeke-ecc.verify
+
+### m.enroll.bsspeke-ecc.save
+
+Parameters
+
+```json
+{
+    "blind_salt": "9087028349082348723659861239847019234..."
+}
+```
+
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.enroll.bsspeke-ecc.enroll",
+        "P": "987097565465465443873242343213435345...",
+        "V": "023492349872350713450987345980723457...",
+        "phf_params": {
+            "name": "argon2i",
+            "iterations": 3,
+            "blocks": 100000
+        }
+    }
+}
+```
 
 ## Stages for Login / Authentication
 
 ### m.login.bsspeke-ecc.oprf
 
+Parameters
+
+```json
+{
+    "curve": "curve25519",
+    "hash_function": "blake2b",
+    "phf_params": {
+        "name": "argon2i",
+        "iterations": 3,
+        "blocks": 100000
+    }
+}
+```
+
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "type": "m.enroll.bsspeke-ecc.oprf",
+        "session": "abcdwxyz",
+        "curve": "curve25519",
+        "blind": "23256673567452234134635674567..."
+    }
+}
+```
+
 ### m.login.bsspeke-ecc.verify
 
+Parameters
+
+```json
+{
+    "blind_salt": "9087028349082348723659861239847019234...",
+    "B": "87568346582639014018349823759824374..."
+}
+```
+
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.enroll.bsspeke-ecc.enroll",
+        "A": "213423436457546745686875678523123113...",
+        "verifier": "32434534574562341232312415456789789...",
+        "phf_params": {
+            "name": "argon2i",
+            "iterations": 3,
+            "blocks": 100000
+        }
+    }
+}
+```
