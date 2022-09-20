@@ -17,11 +17,76 @@ The email auth checker module provides a total of four UIA stages for email:
 
 ### m.enroll.email.request\_token
 
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.enroll.email.request_token",
+        "email": "user@domain.tld"
+    }
+}
+```
+
 ### m.enroll.email.submit\_token
+
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.enroll.email.submit_token",
+        "token": "987654"
+    }
+}
+```
 
 ## Stages for Login / Authentication
 
 ### m.login.email.request\_token
 
+Parameters
+
+```json
+{
+    ...
+    "params": {
+        ...
+        "m.login.email.request_token": {
+            "addresses": ["address1@example.com", "address2@example.org", "example3@example.net"]
+        }
+    }
+}
+```
+
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.login.email.request_token",
+        "email": "user@domain.tld"
+    }
+}
+```
+
 ### m.login.email.submit\_token
 
+Request
+
+```json
+{
+    ...
+    "auth": {
+        "session": "abcdwxyz",
+        "type": "m.login.email.submit_token",
+        "token": "123456"
+    }
+}
+```
