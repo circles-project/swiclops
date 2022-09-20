@@ -19,12 +19,12 @@ struct AdminApiController: RouteCollection {
         var versions: [String]
     }
     
-    init(app: Application, config: Config) {
+    init(app: Application, config: Config, matrixConfig: MatrixConfig) {
         self.app = app
         self.config = config
         
         let endpointHandlerModules: [EndpointHandler] = [
-            TokenAdminHandler()
+            TokenAdminHandler(app: self.app, homeserver: matrixConfig.homeserver)
         ]
         
         self.handlers = [:]

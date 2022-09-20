@@ -17,6 +17,14 @@ struct BSSpekeAuthChecker: AuthChecker {
     let ENROLL_OPRF = "m.enroll.bsspeke-ecc.oprf"
     let ENROLL_SAVE = "m.enroll.bsspeke-ecc.enroll"
     
+    struct Config: Codable {
+        var oprfSecret: String
+        
+        enum CodingKeys: String, CodingKey {
+            case oprfSecret = "oprf_secret"
+        }
+    }
+    
     struct PhfParams: Codable {
         var name: String
         var iterations: UInt
@@ -65,12 +73,15 @@ struct BSSpekeAuthChecker: AuthChecker {
     var app: Application
     let serverId: String
     let oprfKey: [UInt8]
+    let config: Config
     
-    init(app: Application, serverId: String, oprfSecret: String) {
+    init(app: Application, serverId: String, config: Config) {
         self.app = app
         self.serverId = serverId
+        
+        self.config = config
         // The OPRF secret isn't necessarily a valid key.  Hash it with SHA256 to get a key of the proper form.
-        self.oprfKey = Array(SHA256.hash(data: oprfSecret.data(using: .utf8)!))
+        self.oprfKey = Array(SHA256.hash(data: config.oprfSecret.data(using: .utf8)!))
     }
     
     

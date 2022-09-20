@@ -94,9 +94,9 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateUserEmailAddresses())
     
     // routes
-    let uiaController = UiaController(app: app, config: config.uia)
+    let uiaController = UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
     try app.register(collection: uiaController)
-    let adminController = AdminApiController(app: app, config: config.admin)
+    let adminController = AdminApiController(app: app, config: config.admin, matrixConfig: config.matrix)
     try app.register(collection: adminController)
     //try routes(app)
     

@@ -16,6 +16,8 @@ struct UiaController: RouteCollection {
     
     var app: Application
     var config: Config
+    var homeserver: URL
+    var domain: String
     var checkers: [String: AuthChecker]
     var handlers: [Endpoint: EndpointHandler]    // Handlers for the client-server API
     var flows: [Endpoint: [UiaFlow]]
@@ -23,10 +25,12 @@ struct UiaController: RouteCollection {
     var defaultProxyHandler: EndpointHandler
     
     struct Config: Codable {
-        var domain: String
-        var homeserver: URL
+        var backendAuth: BackendAuthConfig
+        //var domain: String
+        //var homeserver: URL
         var registration: RegistrationHandler.Config
-        var bsspekeOprfSecret: String
+        var bsspeke: BSSpekeAuthChecker.Config
+        //var bsspekeOprfSecret: String
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         
@@ -37,18 +41,23 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
-            case bsspekeOprfSecret = "bsspeke_oprf_secret"
-            case domain
-            case homeserver
+            case backendAuth = "backend_auth"
+            //case bsspekeOprfSecret = "bsspeke_oprf_secret"
+            case bsspeke
+            //case domain
+            //case homeserver
             case registration
             case routes
             case defaultFlows = "default_flows"
         }
     }
     
-    init(app: Application, config: Config) {
+    init(app: Application, config: Config, matrixConfig: MatrixConfig) {
         self.app = app
         self.config = config
+        
+        self.domain = matrixConfig.domain
+        self.homeserver = matrixConfig.homeserver
         
         // Set up our map from endpoints to UIA flows
         self.flows = [:]
@@ -67,7 +76,7 @@ struct UiaController: RouteCollection {
             TokenRegistrationAuthChecker(),
             EmailAuthChecker(app: app),
             FooAuthChecker(),
-            BSSpekeAuthChecker(app: app, serverId: config.domain, oprfSecret: config.bsspekeOprfSecret),
+            BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
 
         ]
         self.checkers = [:]
@@ -78,10 +87,14 @@ struct UiaController: RouteCollection {
         }
         
         // Set up our endpoint handlers, that take over after UIA is complete
-        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: self.config.homeserver)
+        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver, authConfig: config.backendAuth)
+        let loginHandler = LoginHandler(app: self.app,
+                                        homeserver: matrixConfig.homeserver,
+                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
+                                        authConfig: config.backendAuth)
         let endpointHandlerModules: [EndpointHandler] = [
-            LoginHandler(app: self.app, homeserver: self.config.homeserver),
-            RegistrationHandler(app: self.app, homeserver: self.config.homeserver, config: self.config.registration),
+            loginHandler,
+            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
             AccountDeactivateHandler(app: self.app, proxy: self.defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
@@ -137,8 +150,8 @@ struct UiaController: RouteCollection {
             // Lookup the userId based on the bearer token
             // We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
             // We should probably also cache the access token locally, so we don't constantly batter that endpoint
-            let uri = URI(scheme: config.homeserver.scheme,
-                          host: config.homeserver.host,
+            let uri = URI(scheme: self.homeserver.scheme,
+                          host: self.homeserver.host,
                           path: "_matrix/client/v3/account/whoami")
             let hsResponse = try await req.client.get(uri, headers: req.headers)
             if hsResponse.status == .ok {
