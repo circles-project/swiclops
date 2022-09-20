@@ -1,0 +1,50 @@
+matrix:
+  domain: "localhost.localdomain"
+  homeserver: "https://localhost/"
+
+uia:
+  registration:
+    shared_secret: "hunter2"
+    use_admin_api: true
+  backend_auth:
+    type: "com.devture.shared_secret_auth"
+    shared_secret: "hunter2"
+  bsspeke:
+    curve: "curve25519"
+    oprf_secret: "hunter2"
+  default_flows:
+    - stages: ["m.login.password"]
+    - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
+  routes:
+    - path: "/login"
+      method: "POST"
+      flows:
+        - stages: ["m.login.terms", "m.login.password"]
+        - stages: ["m.login.terms", "m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
+    - path: "/login"
+      method: "GET"
+      flows: []
+    - path: "/register"
+      method: "POST"
+      flows:
+        - stages: ["m.login.registration_token", "m.login.terms", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.password"]
+    - path: "/account/auth"
+      method: "POST"
+      flows:
+        - stages: ["m.login.password"]
+        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
+        
+admin:
+  versions:
+    - "v1"
+        
+#database:
+#  type: postgres
+#  hostname: localhost
+#  port: 5432
+#  username: swiclops
+#  password: hunter2
+#  database: swiclops
+database:
+  type: sqlite
+  filename: "swiclops.sqlite"
