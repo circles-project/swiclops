@@ -29,12 +29,18 @@ hash function, and the parameters for the password hashing function.
 
 ```json
 {
-    "curve": "curve25519",
-    "hash_function": "blake2b",
-    "phf_params": {
-        "name": "argon2i",
-        "iterations": 3,
-        "blocks": 100000
+    ...
+    "params": {
+        ...
+        "m.enroll.bsspeke-ecc.oprf": {
+            "curve": "curve25519",
+            "hash_function": "blake2b",
+            "phf_params": {
+                "name": "argon2i",
+                "iterations": 3,
+                "blocks": 100000
+            }
+        }
     }
 }
 ```
@@ -60,7 +66,13 @@ Parameters
 
 ```json
 {
-    "blind_salt": "9087028349082348723659861239847019234..."
+    ...
+    "params": {
+        ...
+        "m.enroll.bsspeke-ecc.save": {
+            "blind_salt": "9087028349082348723659861239847019234..."
+        }
+    }
 }
 ```
 
@@ -91,12 +103,18 @@ Parameters
 
 ```json
 {
-    "curve": "curve25519",
-    "hash_function": "blake2b",
-    "phf_params": {
-        "name": "argon2i",
-        "iterations": 3,
-        "blocks": 100000
+    ...
+    "params": {
+        ...
+        "m.login.bsspeke-ecc.oprf": {
+            "curve": "curve25519",
+            "hash_function": "blake2b",
+            "phf_params": {
+                "name": "argon2i",
+                "iterations": 3,
+                "blocks": 100000
+            }
+        }
     }
 }
 ```
@@ -121,8 +139,14 @@ Parameters
 
 ```json
 {
-    "blind_salt": "9087028349082348723659861239847019234...",
-    "B": "87568346582639014018349823759824374..."
+    ...
+    "params": {
+        ...
+        "m.login.bsspeke-ecc.verify": {
+            "blind_salt": "9087028349082348723659861239847019234...",
+            "B": "87568346582639014018349823759824374..."
+        }
+    }
 }
 ```
 
