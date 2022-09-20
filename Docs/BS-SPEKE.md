@@ -70,7 +70,7 @@ Parameters
     "params": {
         ...
         "m.enroll.bsspeke-ecc.save": {
-            "blind_salt": "9087028349082348723659861239847019234..."
+            "blind_salt": "9087028349082348723659861239847019234..."  // base64-encoded curve point
         }
     }
 }
@@ -84,8 +84,8 @@ Request
     "auth": {
         "session": "abcdwxyz",
         "type": "m.enroll.bsspeke-ecc.enroll",
-        "P": "987097565465465443873242343213435345...",
-        "V": "023492349872350713450987345980723457...",
+        "P": "987097565465465443873242343213435345...",  // base64-encoded client's base curve point
+        "V": "023492349872350713450987345980723457...",  // base64-encoded client's public key
         "phf_params": {
             "name": "argon2i",
             "iterations": 3,
@@ -128,7 +128,7 @@ Request
         "type": "m.enroll.bsspeke-ecc.oprf",
         "session": "abcdwxyz",
         "curve": "curve25519",
-        "blind": "23256673567452234134635674567..."
+        "blind": "23256673567452234134635674567..."  // base64-encoded curve point
     }
 }
 ```
@@ -143,8 +143,8 @@ Parameters
     "params": {
         ...
         "m.login.bsspeke-ecc.verify": {
-            "blind_salt": "9087028349082348723659861239847019234...",
-            "B": "87568346582639014018349823759824374..."
+            "blind_salt": "9087028349082348723659861239847019234...",  // base64-encoded curve point
+            "B": "87568346582639014018349823759824374..."              // base64-encoded server's ephemeral public key
         }
     }
 }
@@ -158,8 +158,8 @@ Request
     "auth": {
         "session": "abcdwxyz",
         "type": "m.enroll.bsspeke-ecc.enroll",
-        "A": "213423436457546745686875678523123113...",
-        "verifier": "32434534574562341232312415456789789...",
+        "A": "213423436457546745686875678523123113...",        // base64-encoded client's ephemeral public key
+        "verifier": "32434534574562341232312415456789789...",  // base64-encoded client verifier
         "phf_params": {
             "name": "argon2i",
             "iterations": 3,
