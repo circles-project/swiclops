@@ -5,3 +5,4 @@
 * [Email](./Email.md)
 * [Terms of Service](./Terms.md)
 * [Registration Token](./Registration-Token.md)
+* [Password](./Password.md)
