@@ -11,6 +11,9 @@ import AnyCodable
 
 struct PasswordPolicy: Content {
     var minimumLength: Int
+    // FIXME: Add zxcvbn
+    // * Swift wrapper around C: https://github.com/vzsg/zxcvbn-swift
+    // * Rust library that we could wrap: https://github.com/shssoichiro/zxcvbn-rs
     
     func check(password: String) async -> Bool {
         if password.count < self.minimumLength {
@@ -27,7 +30,7 @@ struct PasswordAuthChecker: AuthChecker {
             var type: String
             var session: String
 
-            // FIXME This should actually be flexible to handle different things
+            // FIXME: This should actually be flexible to handle different things
             //       See https://spec.matrix.org/v1.2/client-server-api/#identifier-types
             struct mIdUser: Content {
                 var type: String
@@ -71,6 +74,7 @@ struct PasswordAuthChecker: AuthChecker {
         case AUTH_TYPE_LOGIN:
             return nil
         case AUTH_TYPE_ENROLL:
+            // FIXME: Why not just encode the Policy itself here???
             return ["minimum_length": AnyCodable(self.policy.minimumLength)]
         default:
             throw Abort(.badRequest)
