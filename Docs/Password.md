@@ -31,6 +31,14 @@ Request
 }
 ```
 
+Response
+
+| Status | Description |
+| --- | --- |
+| 200 | UIA complete, and the request was successful |
+| 401 | UIA still in process |
+| 403 | Password was rejected by policy |
+
 ## Login / Authentication
 
 ### m.login.password
@@ -54,3 +62,11 @@ Request
     }
 }
 ```
+
+Response
+
+| Status | Description |
+| --- | --- |
+| 200 | UIA complete, and the request was successful |
+| 401 | UIA still in process |
+| 403 | Password authentication failed |
