@@ -103,6 +103,7 @@ public func configure(_ app: Application) throws {
     // commands
     app.commands.use(CreateTokenCommand(), as: "create-token")
     app.commands.use(ListTokensCommand(), as: "list-tokens")
+    app.commands.use(SetPasswordCommand(), as: "set-password")
 }
 
 private func _loadConfiguration() throws -> AppConfig {
