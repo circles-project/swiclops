@@ -134,7 +134,7 @@ struct RegistrationHandler: EndpointHandler {
             let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
             
             // We have to use the special admin API, not the normal client-server endpoint
-            let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
+            let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
 
             let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
             req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
