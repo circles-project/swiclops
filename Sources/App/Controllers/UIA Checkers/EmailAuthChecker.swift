@@ -218,9 +218,14 @@ struct EmailAuthChecker: AuthChecker {
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
         
+        // Did the user enroll a new email with us?
         if let userEmail = await session.getData(for: ENROLL_REQUEST_TOKEN+".email") as? String {
+            // If so, save their email to the database
+            req.logger.debug("m.enroll.email: Finalizing enrollment for user [\(userId)] with email [\(userEmail)]")
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
             try await emailRecord.save(on: req.db)
+        } else {
+            req.logger.debug("m.enroll.email: User didn't enroll with us.  Nothing to do.")
         }
     }
     
