@@ -170,6 +170,10 @@ struct RegistrationHandler: EndpointHandler {
                 guard let minimalResponse = try? proxyResponse.content.decode(MinimalRegisterResponse.self)
                 else {
                     req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
+                    
+                    // Ok WTF is going on here???
+                    req.logger.error("RegistrationHandler: Proxy response was \(proxyResponse.description)")
+                    
                     throw Abort(.internalServerError)
                 }
                 let userId = minimalResponse.userId
