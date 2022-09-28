@@ -124,20 +124,22 @@ struct UiaController: RouteCollection {
                 let response = try await handler.handle(req: req)
                 
                 req.logger.debug("UIA Controller: Back from endpoint handler")
+                req.logger.debug("UIA Controller: Got response = \(response.description)")
+
+                // First order of business: Did the response succeed?  If not, we have nothing else to do.
+                guard response.status == .ok else {
+                    return response
+                }
                 
                 // We need to check for a couple of special conditions here:
                 // 1. Did we just register a new user?
                 // 2. Did we just log someone in?
-                
+                                
                 switch endpoint {
                 case .init(.POST, "/register"):
                     req.logger.debug("UIA Controller: Running post-register callbacks")
                     
-                    // First order of business: Did the response succeed?  If not, we have nothing else to do.
-                    if response.status != .ok {
-                        return response
-                    }
-                    // Now since we have a valid /register response, we should be able to extract the user_id from it
+                    // Now supposing we have a valid /register response, we should be able to extract the user_id from it
                     struct MinimalRegisterResponse: Content {
                         var userId: String
                         
@@ -176,11 +178,7 @@ struct UiaController: RouteCollection {
                 case .init(.POST, "/login"):
                     req.logger.debug("UIA Controller: Running post-login callbacks")
                     
-                    // First order of business: Did the response succeed?  If not, we have nothing else to do.
-                    if response.status != .ok {
-                        return response
-                    }
-                    // Now since we have a valid /register response, we should be able to extract the user_id from it
+                    // Now supposing we have a valid /login response, we should be able to extract the user_id from it
                     struct MinimalLoginResponse: Content {
                         var userId: String
                         
