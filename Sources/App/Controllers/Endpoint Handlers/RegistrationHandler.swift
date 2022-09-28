@@ -157,11 +157,23 @@ struct RegistrationHandler: EndpointHandler {
             let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
             req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
 
+            let response = try await proxyResponse.encodeResponse(for: req)
+            req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
+            return response
+            
+            /*
             if let buf = proxyResponse.body {
+                req.logger.debug("RegistrationHandler: Admin API response has a body")
+                if let stringBody = buf.readNullTerminatedString() {
+                    req.logger.debug("RegistrationHandler: Response body is [\(stringBody)]")
+                } else {
+                    req.logger.debug("RegistrationHandler: Failed to convert response body to a String")
+                }
                 return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: Response.Body(buffer: buf))
             } else {
                 return Response(status: proxyResponse.status, headers: proxyResponse.headers)
             }
+            */
         }
         else {
             // Not using the admin API
