@@ -32,7 +32,7 @@ struct SharedSecretRegisterRequestBody: Content {
     var initialDeviceDisplayName: String?
     var mac: String
     var nonce: String
-    var refreshToken: String?
+    var refreshToken: Bool?
     var username: String
     var password: String
     
