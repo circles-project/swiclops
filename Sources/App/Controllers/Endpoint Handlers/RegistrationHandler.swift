@@ -148,6 +148,8 @@ struct RegistrationHandler: EndpointHandler {
             let nonce = nonceResponseBody.nonce
             req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
             
+            req.logger.debug("RegistrationHandler: Nonce response was: \(nonceResponse.description)")
+            
             // Build the shared-secret request from the normal request and the crypto material
             let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
             
