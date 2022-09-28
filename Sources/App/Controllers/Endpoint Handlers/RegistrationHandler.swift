@@ -75,6 +75,24 @@ struct SharedSecretRegisterRequestBody: Content {
     }
 }
 
+struct RegisterResponseBody: Content {
+    var accessToken: String?
+    var deviceId: String?
+    var expiresInMs: Int?
+    var homeServer: String?
+    var refreshToken: String?
+    var userId: String
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case deviceId = "device_id"
+        case expiresInMs = "expires_in_ms"
+        case homeServer = "home_server"
+        case refreshToken = "refresh_token"
+        case userId = "user_id"
+    }
+}
+
 struct RegistrationHandler: EndpointHandler {
     let app: Application
     let homeserver: URL
@@ -138,8 +156,12 @@ struct RegistrationHandler: EndpointHandler {
 
             let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
             req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
-            let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
-            return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
+
+            if let buf = proxyResponse.body {
+                return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: Response.Body(buffer: buf))
+            } else {
+                return Response(status: proxyResponse.status, headers: proxyResponse.headers)
+            }
         }
         else {
             // Not using the admin API
