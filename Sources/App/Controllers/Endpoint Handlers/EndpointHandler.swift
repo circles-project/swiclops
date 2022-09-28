@@ -30,6 +30,10 @@ extension Endpoint: Hashable {
     }
 }
 
+extension Endpoint: Equatable {
+    
+}
+
 protocol EndpointHandler {
     var endpoints: [Endpoint] { get }
     
