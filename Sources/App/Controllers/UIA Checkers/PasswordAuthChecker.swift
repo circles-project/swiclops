@@ -49,14 +49,14 @@ struct PasswordAuthChecker: AuthChecker {
             var type: String
             var session: String
             var newPassword: String
+            
+            enum CodingKeys: String, CodingKey {
+                case type
+                case session
+                case newPassword = "new_password"
+            }
         }
         var auth: AuthDict
-        
-        enum CodingKeys: String, CodingKey {
-            case type
-            case session
-            case newPassword = "new_password"
-        }
     }
     
     
