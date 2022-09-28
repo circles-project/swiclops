@@ -121,7 +121,52 @@ struct UiaController: RouteCollection {
                 
                 try await handleUIA(req: req, flows: policyFlows)
                 
-                return try await handler.handle(req: req)
+                let response = try await handler.handle(req: req)
+                
+                // We need to check for a couple of special conditions here:
+                // 1. Did we just register a new user?
+                // 2. Did we just log someone in?
+                
+                switch endpoint {
+                case .init(.POST, "/register"):
+                    // Find all of the checkers that we just used
+                    // Call .onEnrolled() for each of them
+                    let uiaRequest = try req.content.decode(UiaRequest.self)
+                    let auth = uiaRequest.auth
+                    let session = req.uia.connectSession(sessionId: auth.session)
+                    guard let userId = try await _getUserId(req: req) else {
+                        throw Abort(.internalServerError)
+                    }
+                    let completed = await session.getCompleted()
+                    let modules = completed.compactMap { authType in
+                        self.checkers[authType]
+                    }
+                    for module in modules {
+                        try await module.onEnrolled(req: req, userId: userId)
+                    }
+                    
+                case .init(.POST, "/login"):
+                    // Find all of the checkers that we just used
+                    // Call .onLoggedIn() for each of them
+                    let uiaRequest = try req.content.decode(UiaRequest.self)
+                    let auth = uiaRequest.auth
+                    let session = req.uia.connectSession(sessionId: auth.session)
+                    guard let userId = try await _getUserId(req: req) else {
+                        throw Abort(.internalServerError)
+                    }
+                    let completed = await session.getCompleted()
+                    let modules = completed.compactMap { authType in
+                        self.checkers[authType]
+                    }
+                    for module in modules {
+                        try await module.onLoggedIn(req: req, userId: userId)
+                    }
+                    
+                default:
+                    break
+                }
+                
+                return response
             }
         }
         
@@ -338,7 +383,7 @@ struct UiaController: RouteCollection {
             let completed = await session.getCompleted()
             req.logger.debug("UIA controller: Got completed = \(completed)")
             let completedStages: Set<String> = .init(completed)
-            req.logger.debug("UIA controller: Completed stages = \(completedStages)")
+            //req.logger.debug("UIA controller: Completed stages = \(completedStages)")
             for flow in requiredFlows {
                 let flowStages: Set<String> = .init(flow.stages)
                 if completedStages.isSuperset(of: flowStages) {
