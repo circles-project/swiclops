@@ -157,6 +157,34 @@ struct RegistrationHandler: EndpointHandler {
             let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
             req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
 
+            // If the response was successful, then the user was just registered on the homeserver
+            if proxyResponse.status == .ok {
+                // We need to find out the user_id for all of our post-enroll callbacks
+                struct MinimalRegisterResponse: Content {
+                    var userId: String
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                    }
+                }
+                guard let minimalResponse = try? proxyResponse.content.decode(MinimalRegisterResponse.self)
+                else {
+                    req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
+                    throw Abort(.internalServerError)
+                }
+                let userId = minimalResponse.userId
+                req.logger.debug("RegistrationHandler: The new user's id is [\(userId)]")
+                
+                // Now we need to save the user id in the UIA session; This is also for the post-enroll processing
+                guard let uiaResponse = try? req.content.decode(UiaRequest.self) else {
+                    req.logger.error("RegistrationHandler: Couldn't decode UIA request")
+                    throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't decode UIA request")
+                }
+                let auth = uiaResponse.auth
+                let session = req.uia.connectSession(sessionId: auth.session)
+                await session.setData(for: "user_id", value: userId)
+            }
+            
             let response = try await proxyResponse.encodeResponse(for: req)
             req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
             return response

@@ -138,22 +138,6 @@ struct UiaController: RouteCollection {
                 switch endpoint {
                 case .init(.POST, "/register"):
                     req.logger.debug("UIA Controller: Running post-register callbacks")
-                    
-                    // Now supposing we have a valid /register response, we should be able to extract the user_id from it
-                    struct MinimalRegisterResponse: Content {
-                        var userId: String
-                        
-                        enum CodingKeys: String, CodingKey {
-                            case userId = "user_id"
-                        }
-                    }
-                    guard let backendResponse = try? response.content.decode(MinimalRegisterResponse.self)
-                    else {
-                        req.logger.error("UIA Controller: Admin API returned 200 OK but we can't find a user_id")
-                        throw Abort(.internalServerError)
-                    }
-                    let userId = backendResponse.userId
-                    req.logger.debug("UIA Controller: The new user's id is [\(userId)]")
 
                     // Find all of the checkers that we just used
                     // Call .onEnrolled() for each of them
@@ -163,6 +147,10 @@ struct UiaController: RouteCollection {
                     }
                     let auth = uiaRequest.auth
                     let session = req.uia.connectSession(sessionId: auth.session)
+                    guard let userId = await session.getData(for: "user_id") as? String else {
+                        req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
+                        throw Abort(.internalServerError)
+                    }
                     
                     let completed = await session.getCompleted()
                     req.logger.debug("UIA Controller: Found completed stages: \(completed)")
@@ -178,6 +166,8 @@ struct UiaController: RouteCollection {
                 case .init(.POST, "/login"):
                     req.logger.debug("UIA Controller: Running post-login callbacks")
                     
+                    /*
+                      // FIXME: Move this stuff into LoginHandler
                     // Now supposing we have a valid /login response, we should be able to extract the user_id from it
                     struct MinimalLoginResponse: Content {
                         var userId: String
@@ -193,6 +183,7 @@ struct UiaController: RouteCollection {
                     }
                     let userId = backendResponse.userId
                     req.logger.debug("UIA Controller: The user logged in as [\(userId)]")
+                    */
 
                     // Find all of the checkers that we just used
                     // Call .onLoggedIn() for each of them
@@ -202,7 +193,8 @@ struct UiaController: RouteCollection {
                     }
                     let auth = uiaRequest.auth
                     let session = req.uia.connectSession(sessionId: auth.session)
-                    guard let userId = try await _getUserId(req: req) else {
+                    guard let userId = await session.getData(for: "user_id") as? String else {
+                        req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
                         throw Abort(.internalServerError)
                     }
                     let completed = await session.getCompleted()
