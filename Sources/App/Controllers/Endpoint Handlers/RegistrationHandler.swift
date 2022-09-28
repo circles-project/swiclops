@@ -119,7 +119,7 @@ struct RegistrationHandler: EndpointHandler {
             // -- Here we're using the shared secret approach from the Synapse admin API https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
             
             // First get a fresh nonce from the homeserver
-            let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
+            let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
             let nonceResponse = try await req.client.get(nonceURI)
             struct NonceResponseBody: Content {
                 var nonce: String
