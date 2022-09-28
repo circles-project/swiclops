@@ -67,9 +67,9 @@ struct LoginHandler: EndpointHandler {
         // We don't actually handle /login requests ourselves
         // We need to craft a /login request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
-        let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: req.url.path)
+        let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
         let token = try SharedSecretAuth.token(secret: self.authConfig.sharedSecret, userId: clientRequest.identifier.user)
-        let proxyRequestBody = LoginRequestBody(identifier: clientRequest.identifier, type: self.authConfig.type.rawValue, token: token) // FIXME: Update this to use https://github.com/devture/matrix-synapse-shared-secret-auth
+        let proxyRequestBody = LoginRequestBody(identifier: clientRequest.identifier, type: self.authConfig.type.rawValue, token: token)
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
         return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
