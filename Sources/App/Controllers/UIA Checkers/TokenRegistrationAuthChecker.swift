@@ -100,12 +100,15 @@ struct TokenRegistrationAuthChecker: AuthChecker {
     
     func onLoggedIn(req: Request, userId: String) async throws {
         // Do nothing
+        // FIXME: Actually maybe we should throw an error here -- Using a registration token to log in is just weird
     }
     
     func onEnrolled(req: Request, userId: String) async throws {
         // Yay the user's registration was successful
+        req.logger.debug("m.login.registration_token: Finalizing enrollment for user [\(userId)]")
         
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            req.logger.error("m.login.registration_token: Couldn't decode UIA request")
             throw Abort(.badRequest)
         }
         
@@ -114,6 +117,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         
         let session = req.uia.connectSession(sessionId: sessionId)
         guard let token = await session.getData(for: "registration_token") as? String else {
+            req.logger.error("m.login.registration_token: Can't finalize enrollment because registration_token is missing")
             throw Abort(.internalServerError)
         }
         
