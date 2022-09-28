@@ -185,13 +185,16 @@ struct PasswordAuthChecker: AuthChecker {
         }
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
-        // Find the hashed password in the session state
-        guard let digest = await session.getData(for: AUTH_TYPE_ENROLL+".digest") as? String else {
-            throw Abort(.internalServerError)
+        // Look for a hashed password in the session state
+        // If we find one, then we just enrolled this user for our auth.  Otherwise, maybe we were in the flows to authenticate the user with an existing password, and they just enrolled with some other auth method.
+        if let digest = await session.getData(for: AUTH_TYPE_ENROLL+".digest") as? String  {
+            req.logger.debug("\(AUTH_TYPE_ENROLL): Finishing enrollment for user [\(userId)]")
+            // Save the new hash in the database
+            let record = PasswordHash(userId: userId, hashFunc: "bcrypt", digest: digest)
+            try await record.create(on: req.db)
+        } else {
+            req.logger.debug("\(AUTH_TYPE_ENROLL): User didn't enroll with us.  Nothing to do.")
         }
-        // Save the new hash in the database
-        let record = PasswordHash(userId: userId, hashFunc: "bcrypt", digest: digest)
-        try await record.create(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {

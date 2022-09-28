@@ -337,14 +337,18 @@ struct BSSpekeAuthChecker: AuthChecker {
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
         
+        // OK the user just enrolled for some auth method.  Was it us?
         guard let userId = await session.getData(for: "m.user.id") as? String,
               let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String,
               let P = await session.getData(for: ENROLL_SAVE+".P") as? String,
               let V = await session.getData(for: ENROLL_SAVE+".V") as? String,
               let phfParams = await session.getData(for: ENROLL_SAVE+".phf_params") as? PhfParams
         else {
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not retrieve BS-SPEKE data from UIA session")
+            //throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not retrieve BS-SPEKE data from UIA session")
+            req.logger.debug("BS-SPEKE: The new user didn't enroll with us.  Nothing to do.")
+            return
         }
+        req.logger.debug("BS-SPEKE: Finalizing enrollment for user [\(userId)]")
         let dbRecord = BSSpekeUser(userId: userId, curve: curve, P: P, V: V, phf: phfParams)
         try await dbRecord.create(on: req.db)
     }
