@@ -56,6 +56,14 @@ struct BSSpekeAuthChecker: AuthChecker {
             var P: String
             var V: String
             var phfParams: PhfParams
+            
+            enum CodingKeys: String, CodingKey {
+                case session
+                case type
+                case P
+                case V
+                case phfParams = "phf_params"
+            }
         }
         var auth: AuthDict
     }
@@ -66,6 +74,13 @@ struct BSSpekeAuthChecker: AuthChecker {
             var type: String
             var A: String
             var verifier: String
+            
+            enum CodingKeys: String, CodingKey {
+                case session
+                case type
+                case A
+                case verifier
+            }
         }
         var auth: AuthDict
     }

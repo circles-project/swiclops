@@ -51,6 +51,12 @@ struct PasswordAuthChecker: AuthChecker {
             var newPassword: String
         }
         var auth: AuthDict
+        
+        enum CodingKeys: String, CodingKey {
+            case type
+            case session
+            case newPassword = "new_password"
+        }
     }
     
     
