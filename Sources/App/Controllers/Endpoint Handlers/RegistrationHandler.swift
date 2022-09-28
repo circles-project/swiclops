@@ -13,7 +13,7 @@ struct BasicRegisterRequestBody: Content {
     var inhibitLogin: Bool?
     var initialDeviceDisplayName: String?
     var password: String?
-    var refreshToken: String?
+    var refreshToken: Bool?
     var username: String
     
     enum CodingKeys: String, CodingKey {
