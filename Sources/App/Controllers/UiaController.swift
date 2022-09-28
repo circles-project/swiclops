@@ -123,46 +123,66 @@ struct UiaController: RouteCollection {
                 
                 let response = try await handler.handle(req: req)
                 
+                req.logger.debug("UIA Controller: Back from endpoint handler")
+                
                 // We need to check for a couple of special conditions here:
                 // 1. Did we just register a new user?
                 // 2. Did we just log someone in?
                 
                 switch endpoint {
                 case .init(.POST, "/register"):
+                    req.logger.debug("UIA Controller: Running post-register callbacks")
+                    
                     // Find all of the checkers that we just used
                     // Call .onEnrolled() for each of them
-                    let uiaRequest = try req.content.decode(UiaRequest.self)
+                    guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                        req.logger.error("UIA Controller: Couldn't decode UIA request")
+                        throw Abort(.internalServerError)
+                    }
                     let auth = uiaRequest.auth
                     let session = req.uia.connectSession(sessionId: auth.session)
                     guard let userId = try await _getUserId(req: req) else {
+                        req.logger.error("UIA Controller: Couldn't get user id")
                         throw Abort(.internalServerError)
                     }
                     let completed = await session.getCompleted()
-                    let modules = completed.compactMap { authType in
-                        self.checkers[authType]
-                    }
-                    for module in modules {
+                    req.logger.debug("UIA Controller: Found completed stages: \(completed)")
+                    for stage in completed {
+                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
+                        guard let module = checkers[stage] else {
+                            req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
+                            throw Abort(.internalServerError)
+                        }
                         try await module.onEnrolled(req: req, userId: userId)
                     }
                     
                 case .init(.POST, "/login"):
+                    req.logger.debug("UIA Controller: Running post-login callbacks")
+
                     // Find all of the checkers that we just used
                     // Call .onLoggedIn() for each of them
-                    let uiaRequest = try req.content.decode(UiaRequest.self)
+                    guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                        req.logger.error("UIA Controller: Couldn't decode UIA request")
+                        throw Abort(.internalServerError)
+                    }
                     let auth = uiaRequest.auth
                     let session = req.uia.connectSession(sessionId: auth.session)
                     guard let userId = try await _getUserId(req: req) else {
                         throw Abort(.internalServerError)
                     }
                     let completed = await session.getCompleted()
-                    let modules = completed.compactMap { authType in
-                        self.checkers[authType]
-                    }
-                    for module in modules {
+                    req.logger.debug("UIA Controller: Found completed stages: \(completed)")
+                    for stage in completed {
+                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
+                        guard let module = checkers[stage] else {
+                            req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
+                            throw Abort(.internalServerError)
+                        }
                         try await module.onLoggedIn(req: req, userId: userId)
                     }
                     
                 default:
+                    req.logger.debug("UIA Controller: No special processing for this endpoint")
                     break
                 }
                 
