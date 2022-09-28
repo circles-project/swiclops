@@ -139,11 +139,13 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func _checkEnroll(req: Request) async throws -> Bool {
+        req.logger.debug("\(AUTH_TYPE_ENROLL): Checking...")
         // Extract the proposed new password from the request
         guard let enrollRequest = try? req.content.decode(EnrollUiaRequest.self),
               enrollRequest.auth.type == AUTH_TYPE_ENROLL
         else {
-            throw Abort(.badRequest)
+            req.logger.debug("\(AUTH_TYPE_ENROLL): Couldn't decode request")
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Invalid request")
         }
         let auth = enrollRequest.auth
         let password = auth.newPassword
@@ -151,16 +153,19 @@ struct PasswordAuthChecker: AuthChecker {
         let satisfiesPolicy = await self.policy.check(password: password)
         // If not, return false / Abort with 401 so the user can try again
         if !satisfiesPolicy {
-            throw Abort(.unauthorized)
+            req.logger.debug("Password is too short for policy")
+            throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Password does not satisfy policy")
         }
         // Otherwise,
         //   Hash the password
         let digest = try await req.password.async.hash(password)
+        req.logger.debug("\(AUTH_TYPE_ENROLL): Password hash is [\(digest)]")
         //   Connect to our persistent UIA session state
         let session = req.uia.connectSession(sessionId: auth.session)
         //   Actually save the digest into the session state
         await session.setData(for: AUTH_TYPE_ENROLL+".digest", value: digest)
 
+        req.logger.debug("\(AUTH_TYPE_ENROLL): Success!")
         return true
     }
     
