@@ -15,6 +15,15 @@ struct BasicRegisterRequestBody: Content {
     var password: String?
     var refreshToken: String?
     var username: String
+    
+    enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case inhibitLogin = "inhibit_login"
+        case initialDeviceDisplayName = "initial_device_display_name"
+        case password
+        case refreshToken = "refresh_token"
+        case username
+    }
 }
 
 struct SharedSecretRegisterRequestBody: Content {
@@ -26,6 +35,17 @@ struct SharedSecretRegisterRequestBody: Content {
     var refreshToken: String?
     var username: String
     var password: String
+    
+    enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case inhibitLogin = "inhibit_login"
+        case initialDeviceDisplayName = "initial_device_display_name"
+        case mac
+        case nonce
+        case refreshToken = "refresh_token"
+        case username
+        case password
+    }
     
     init(_ basicRequest: BasicRegisterRequestBody, nonce: String, sharedSecret: String) {
         self.deviceId = basicRequest.deviceId
@@ -80,13 +100,15 @@ struct RegistrationHandler: EndpointHandler {
         self.config = config
     }
     
-    func handle(req: Request) async throws -> Response {
     
+    func handle(req: Request) async throws -> Response {
+        req.logger.debug("RegistrationHandler: Handling request")
         
         guard let clientRequest = try? req.content.decode(BasicRegisterRequestBody.self)
         else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /register request")
         }
+        req.logger.debug("RegistrationHandler: username = [\(clientRequest.username)")
         
         // We don't really handle /register requests all by ourselves
         // We handle all the authentication parts, but the "real" homeserver is the one who actually creates the account
@@ -106,6 +128,7 @@ struct RegistrationHandler: EndpointHandler {
                 throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get nonce")
             }
             let nonce = nonceResponseBody.nonce
+            req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
             
             // Build the shared-secret request from the normal request and the crypto material
             let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
@@ -114,6 +137,7 @@ struct RegistrationHandler: EndpointHandler {
             let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_synapse/admin/v1/register")
 
             let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
+            req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
             let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
             return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
         }
