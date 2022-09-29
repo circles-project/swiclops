@@ -31,8 +31,7 @@ final class UserEmailAddress: Model, Content {
     
     init(id: UUID? = nil, userId: String, email: String) {
         self.id = id
-    //init(email: String?, userId: String)
-    //    self.id = email
         self.userId = userId
+        self.email = email
     }
 }

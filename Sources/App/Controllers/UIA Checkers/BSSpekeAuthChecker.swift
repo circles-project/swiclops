@@ -122,7 +122,7 @@ struct BSSpekeAuthChecker: AuthChecker {
                 throw MatrixError(status: .badRequest, errcode: .missingParam, error: "Missing parameter: user id")
             }
             let maybeRecord = try await BSSpekeUser.query(on: req.db)
-                .filter(\.$userId == userId)
+                .filter(\.$id == userId)
                 .first()
             guard let rec = maybeRecord else {
                 // User doesn't seem to be enrolled with us.
@@ -205,7 +205,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         }
         
         guard let dbRecord = try await BSSpekeUser.query(on: req.db)
-            .filter(\.$userId == userId)
+            .filter(\.$id == userId)
             .filter(\.$curve == auth.curve)
             .first()
         else {
@@ -349,13 +349,13 @@ struct BSSpekeAuthChecker: AuthChecker {
             return
         }
         req.logger.debug("BS-SPEKE: Finalizing enrollment for user [\(userId)]")
-        let dbRecord = BSSpekeUser(userId: userId, curve: curve, P: P, V: V, phf: phfParams)
+        let dbRecord = BSSpekeUser(id: userId, curve: curve, P: P, V: V, phf: phfParams)
         try await dbRecord.create(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
         let dbRecord = try await BSSpekeUser.query(on: app.db)
-            .filter(\.$userId == userId)
+            .filter(\.$id == userId)
             .first()
         
         return dbRecord != nil
@@ -367,7 +367,7 @@ struct BSSpekeAuthChecker: AuthChecker {
     
     func onUnenrolled(req: Request, userId: String) async throws {
         try await BSSpekeUser.query(on: req.db)
-                             .filter(\.$userId == userId)
+                             .filter(\.$id == userId)
                              .delete()
     }
     

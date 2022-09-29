@@ -12,12 +12,9 @@ final class BSSpekeUser: Model {
     static var schema = "bsspeke_users"
     typealias PHF = BSSpekeAuthChecker.PhfParams
     
-    @ID(key: "uuid")
-    var id: UUID?
-    
-    @Field(key: "user_id")
-    var userId: String?
-    
+    @ID(custom: "user_id", generatedBy: .user)
+    var id: String?
+
     @Field(key: "curve")
     var curve: String
   
@@ -58,9 +55,8 @@ final class BSSpekeUser: Model {
     init() {
     }
     
-    init(id: UUID? = nil, userId: String, curve: String?, P: String, V: String, phf: PHF) {
+    init(id: String? = nil, curve: String?, P: String, V: String, phf: PHF) {
         self.id = id
-        self.userId = userId
         self.curve = curve ?? "curve25519"
         self.P = P
         self.V = V

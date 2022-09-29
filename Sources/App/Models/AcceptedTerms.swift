@@ -11,7 +11,7 @@ import Vapor
 final class AcceptedTerms: Model, Content {
     static let schema = "accepted_terms"
     
-    @ID(key: "uuid")
+    @ID(key: .id)
     var id: UUID?
     
     @Field(key: "user_id")
