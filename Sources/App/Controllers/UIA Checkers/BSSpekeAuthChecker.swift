@@ -15,7 +15,7 @@ struct BSSpekeAuthChecker: AuthChecker {
     let LOGIN_OPRF = "m.login.bsspeke-ecc.oprf"
     let LOGIN_VERIFY = "m.login.bsspeke-ecc.verify"
     let ENROLL_OPRF = "m.enroll.bsspeke-ecc.oprf"
-    let ENROLL_SAVE = "m.enroll.bsspeke-ecc.enroll"
+    let ENROLL_SAVE = "m.enroll.bsspeke-ecc.save"
     
     struct Config: Codable {
         var oprfSecret: String
