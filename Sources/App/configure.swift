@@ -24,6 +24,10 @@ public func configure(_ app: Application) throws {
     // Use Vapor's built-in passwords with Bcrypt
     app.passwords.use(.bcrypt)
     
+    // Enable compression in the HTTP client
+    app.http.client.configuration.decompression = .enabled(limit: .ratio(100))
+
+    
     /*
     let testConfigString = """
     uia:
