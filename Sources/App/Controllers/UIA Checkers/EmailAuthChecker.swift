@@ -214,6 +214,7 @@ struct EmailAuthChecker: AuthChecker {
             req.logger.debug("m.enroll.email: onEnroll() but authType is not \(ENROLL_SUBMIT_TOKEN) -- doing nothing")
             return
         }
+        req.logger.debug("m.enroll.email: onEnroll()")
         
         // FIXME Save the user's email address in the database
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
