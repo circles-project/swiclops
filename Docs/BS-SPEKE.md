@@ -10,7 +10,7 @@ password is never exposed to the server or on the network.
 
 The BS-SPEKE module provides a total of four UIA stages:
 
-* Two stages (OPRF and verify) to enroll a new user for BS-SPEKE
+* Two stages (OPRF and save) to enroll a new user for BS-SPEKE
   authentication.  The same two stages can also be used to change
   the password for an existing user.
 
@@ -83,7 +83,7 @@ Request
     ...
     "auth": {
         "session": "abcdwxyz",
-        "type": "m.enroll.bsspeke-ecc.enroll",
+        "type": "m.enroll.bsspeke-ecc.save",
         "P": "987097565465465443873242343213435345...",  // base64-encoded client's base curve point
         "V": "023492349872350713450987345980723457...",  // base64-encoded client's public key
         "phf_params": {
