@@ -103,7 +103,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         // FIXME: Actually maybe we should throw an error here -- Using a registration token to log in is just weird
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
         // Yay the user's registration was successful
         req.logger.debug("m.login.registration_token: Finalizing enrollment for user [\(userId)]")
         

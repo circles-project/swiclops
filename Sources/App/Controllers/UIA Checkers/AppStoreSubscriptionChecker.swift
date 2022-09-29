@@ -107,7 +107,7 @@ struct AppStoreSubscriptionChecker: AuthChecker {
         // Do nothing
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
         // FIXME: Pull the subscription information out of the UIA session and save it to the database
         //   * Product id
         //   * Expiration date

@@ -330,7 +330,11 @@ struct BSSpekeAuthChecker: AuthChecker {
         // Do nothing
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        guard authType == ENROLL_SAVE else {
+            req.logger.debug("BS-SPEKE: onEnroll() for non-\(ENROLL_SAVE) -- doing nothing")
+            return
+        }
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Can't enroll on a non-UIA request")
         }

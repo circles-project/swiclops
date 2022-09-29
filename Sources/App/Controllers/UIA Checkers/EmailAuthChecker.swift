@@ -209,7 +209,12 @@ struct EmailAuthChecker: AuthChecker {
         // Do nothing
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        guard authType == ENROLL_SUBMIT_TOKEN else {
+            req.logger.debug("m.enroll.email: onEnroll() but authType is not \(ENROLL_SUBMIT_TOKEN) -- doing nothing")
+            return
+        }
+        
         // FIXME Save the user's email address in the database
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
             throw Abort(.badRequest)
@@ -225,7 +230,8 @@ struct EmailAuthChecker: AuthChecker {
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
             try await emailRecord.save(on: req.db)
         } else {
-            req.logger.debug("m.enroll.email: User didn't enroll with us.  Nothing to do.")
+            req.logger.error("m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session")
+            throw Abort(.internalServerError)
         }
     }
     

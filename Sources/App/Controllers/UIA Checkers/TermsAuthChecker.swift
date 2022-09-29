@@ -91,7 +91,7 @@ struct TermsAuthChecker: AuthChecker {
         try await self._updateDatabase(for: req, userId: userId)
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
         // Update the database with the fact that this user has accepted these terms
         // Use the AcceptedTerms model type for this
         try await self._updateDatabase(for: req, userId: userId)

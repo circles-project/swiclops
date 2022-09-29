@@ -58,7 +58,7 @@ struct FooAuthChecker: AuthChecker {
         // Do nothing
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
         // Do nothing
     }
     

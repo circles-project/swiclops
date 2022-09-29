@@ -179,8 +179,13 @@ struct PasswordAuthChecker: AuthChecker {
         // Do nothing
     }
     
-    func onEnrolled(req: Request, userId: String) async throws {
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        guard authType == AUTH_TYPE_ENROLL else {
+            req.logger.debug("PasswordAuthChecker.onEnroll but authType is not \(AUTH_TYPE_ENROLL) -- doing nothing")
+            return
+        }
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            req.logger.error("PasswordAuthChecker.onEnrolled: Couldn't decode UIA request")
             throw Abort(.badRequest)
         }
         let auth = uiaRequest.auth
@@ -193,7 +198,8 @@ struct PasswordAuthChecker: AuthChecker {
             let record = PasswordHash(userId: userId, hashFunc: "bcrypt", digest: digest)
             try await record.create(on: req.db)
         } else {
-            req.logger.debug("\(AUTH_TYPE_ENROLL): User didn't enroll with us.  Nothing to do.")
+            req.logger.error("PasswordAuthChecker: Can't enroll user \(userId) because there is no digest in the UIA session")
+            throw Abort(.internalServerError)
         }
     }
     

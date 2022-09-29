@@ -19,7 +19,7 @@ protocol AuthChecker {
     
     func onLoggedIn(req: Request, userId: String) async throws -> Void
 
-    func onEnrolled(req: Request, userId: String) async throws -> Void
+    func onEnrolled(req: Request, authType: String, userId: String) async throws -> Void
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool
     
