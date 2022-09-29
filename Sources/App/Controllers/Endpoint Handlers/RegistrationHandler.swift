@@ -122,6 +122,19 @@ struct RegistrationHandler: EndpointHandler {
     func handle(req: Request) async throws -> Response {
         req.logger.debug("RegistrationHandler: Handling request")
         
+        struct RegisterQueryParams: Content {
+            enum Kind: String, Codable {
+                case user
+                case guest
+            }
+            var kind: Kind
+        }
+        if let params = try? req.query.decode(RegisterQueryParams.self) {
+            guard params.kind == .user else {
+                throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Guest registration not supported")
+            }
+        }
+        
         guard let clientRequest = try? req.content.decode(BasicRegisterRequestBody.self)
         else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /register request")
