@@ -16,7 +16,7 @@ struct CreateUserEmailAddresses: AsyncMigration {
             .field("email", .string, .required)
             .field("user_id", .string, .required)
             .field("last_updated", .datetime, .required)
-            .unique(on: "email", name: "one_account_per_email")
+            //.unique(on: "email", name: "one_account_per_email")
             .create()
     }
 
