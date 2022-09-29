@@ -113,6 +113,7 @@ struct UiaController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         
         let matrixCSAPI = routes.grouped("_matrix", "client", ":version")
+                                .grouped(MatrixUserAuthenticator(homeserver: self.homeserver))
         
         for (endpoint,handler) in handlers {
 
