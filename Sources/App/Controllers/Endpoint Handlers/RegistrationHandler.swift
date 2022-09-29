@@ -147,9 +147,7 @@ struct RegistrationHandler: EndpointHandler {
             }
             let nonce = nonceResponseBody.nonce
             req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
-            
-            req.logger.debug("RegistrationHandler: Nonce response was: \(nonceResponse.description)")
-            
+                        
             // Build the shared-secret request from the normal request and the crypto material
             let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
             
@@ -174,6 +172,9 @@ struct RegistrationHandler: EndpointHandler {
                     req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
                     
                     // Ok WTF is going on here???
+                    // Update: It turns out that the nginx-proxy was adding gzip compression, which the Vapor client can't handle by default 🤦‍♂️😱👎
+                    //         The fix was simple: Connect directly to Synapse instead of going through Nginx.
+                    //         Alternatively, we also enabled decompression for the client in configure()
                     req.logger.error("RegistrationHandler: Proxy response was \(proxyResponse.description)")
                     
                     throw Abort(.internalServerError)

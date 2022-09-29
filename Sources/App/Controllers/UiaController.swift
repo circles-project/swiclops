@@ -126,7 +126,7 @@ struct UiaController: RouteCollection {
                 req.logger.debug("UIA Controller: Back from endpoint handler")
                 req.logger.debug("UIA Controller: Got response = \(response.description)")
 
-                // First order of business: Did the response succeed?  If not, we have nothing else to do.
+                // First order of business: Did the response succeed?  If not, then we have nothing else to do.
                 guard response.status == .ok else {
                     return response
                 }
@@ -213,6 +213,7 @@ struct UiaController: RouteCollection {
                     break
                 }
                 
+                // Finally, after all that, now we can return the response that we received way up above
                 return response
             }
         }
