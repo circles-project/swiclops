@@ -155,12 +155,13 @@ struct UiaController: RouteCollection {
                     let completed = await session.getCompleted()
                     req.logger.debug("UIA Controller: Found completed stages: \(completed)")
                     for stage in completed {
-                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
                         guard let module = checkers[stage] else {
                             req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
                             throw Abort(.internalServerError)
                         }
+                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
                         try await module.onEnrolled(req: req, authType: stage, userId: userId)
+                        req.logger.debug("UIA Controller: Back from .onEnrolled() for \(stage)")
                     }
                     req.logger.debug("UIA Controller: Done with onEnrolled()")
                     

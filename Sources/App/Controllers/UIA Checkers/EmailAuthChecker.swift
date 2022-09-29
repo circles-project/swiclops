@@ -230,6 +230,7 @@ struct EmailAuthChecker: AuthChecker {
             req.logger.debug("m.enroll.email: Finalizing enrollment for user [\(userId)] with email [\(userEmail)]")
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
             try await emailRecord.save(on: req.db)
+            req.logger.debug("m.enroll.email: User email saved to the database")
         } else {
             req.logger.error("m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session")
             throw Abort(.internalServerError)

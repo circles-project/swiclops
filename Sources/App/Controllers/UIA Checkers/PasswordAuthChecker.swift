@@ -180,6 +180,7 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        req.logger.debug("PasswordAuthChecker.onEnrolled()")
         guard authType == AUTH_TYPE_ENROLL else {
             req.logger.debug("PasswordAuthChecker.onEnroll but authType is not \(AUTH_TYPE_ENROLL) -- doing nothing")
             return
