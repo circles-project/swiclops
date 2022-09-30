@@ -114,7 +114,7 @@ struct BSSpekeAuthChecker: AuthChecker {
             return [
                 "curve" : AnyCodable("curve25519"),
                 "hash_function" : AnyCodable("blake2b"), // FIXME Make this actually configurable
-                "phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
+                //"phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
             ]
         case LOGIN_OPRF:
             guard let userId = userId else {
@@ -200,7 +200,7 @@ struct BSSpekeAuthChecker: AuthChecker {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find BS-SPEKE session state")
         }
         
-        guard let userId = await session.getData(for: "m.user.id") as? String else {
+        guard let userId = await session.getData(for: "user_id") as? String else {
             throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
         }
         
@@ -224,6 +224,7 @@ struct BSSpekeAuthChecker: AuthChecker {
     
     private func doOPRF(req: Request, nextStage: String) async throws {
         guard let oprfRequest = try? req.content.decode(OprfRequest.self) else {
+            req.logger.error("BS-SPEKE: Failed to decode OPRF request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Failed to decode BS-SPEKE OPRF request")
         }
         let auth = oprfRequest.auth
@@ -232,7 +233,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         
         let blind = try _b64decode(auth.blind)
         
-        guard let userId = await session.getData(for: "m.user.id") as? String else {
+        guard let userId = await session.getData(for: "user_id") as? String else {
             throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
         }
         
@@ -342,8 +343,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         let session = req.uia.connectSession(sessionId: auth.session)
         
         // OK the user just enrolled for some auth method.  Was it us?
-        guard let userId = await session.getData(for: "m.user.id") as? String,
-              let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String,
+        guard let curve = await session.getData(for: ENROLL_SAVE+".curve") as? String,
               let P = await session.getData(for: ENROLL_SAVE+".P") as? String,
               let V = await session.getData(for: ENROLL_SAVE+".V") as? String,
               let phfParams = await session.getData(for: ENROLL_SAVE+".phf_params") as? PhfParams

@@ -241,39 +241,34 @@ struct UiaController: RouteCollection {
         return String( (0 ..< length).map { _ in "0123456789".randomElement()! } )
     }
     
+    private func canonicalizeUserId(_ username: String) -> String {
+        let firstPart = username.starts(with: "@") ? username : "@" + username
+        let userId = firstPart.contains(":") ? firstPart : firstPart + ":" + domain
+        return userId
+    }
+    
     private func _getUserId(req: Request) async throws -> String? {
-        if let bearerHeader = req.headers.bearerAuthorization {
-            // FIXME: Move the bearer auth into a Vapor middleware https://docs.vapor.codes/4.0/authentication/#bearer
-            let token = bearerHeader.token
-            // Lookup the userId based on the bearer token
-            // We can hit https://HOMESERVER/_matrix/client/VERSION/whoami to get the username from the access_token
-            // We should probably also cache the access token locally, so we don't constantly batter that endpoint
-            let uri = URI(scheme: self.homeserver.scheme,
-                          host: self.homeserver.host,
-                          path: "_matrix/client/v3/account/whoami")
-            let hsResponse = try await req.client.get(uri, headers: req.headers)
-            if hsResponse.status == .ok {
-                // The homeserver knows who we are
-                // Decode the response to extract the user id
-                guard let whoami = try? hsResponse.content.decode(WhoamiResponseBody.self) else {
-                    throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to look up user id from access token")
-                }
-                return whoami.userId
+        // First look for a logged-in Matrix user with a Bearer token.
+        // Our MatrixUserAuthenticator will have found the user_id for these users.
+        if let authUser = req.auth.get(MatrixUser.self) {
+            return authUser.userId
+        }
+        
+        // Maybe the user is trying to log in, and they sent the user id in the request
+        if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
+            if loginRequest.identifier.type == "m.id.user" {
+                return loginRequest.identifier.user
             } else {
-                // Homeserver didn't give us a user id -- guess we're not anybody
                 return nil
             }
-        } else {
-            // Maybe the user is trying to log in, and they sent the user id in the request
-            if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
-                if loginRequest.identifier.type == "m.id.user" {
-                    return loginRequest.identifier.user
-                } else {
-                    return nil
-                }
-                // FIXME: Add support for looking up user id from a 3pid like an email address
-            }
+            // FIXME: Add support for looking up user id from a 3pid like an email address
         }
+        
+        // Maybe it's a new user trying to register
+        if let registerRequest = try? req.content.decode(BasicRegisterRequestBody.self) {
+            return canonicalizeUserId(registerRequest.username)
+        }
+
         // Every attempt to find a user id has failed
         // Guess we don't know who the heck this is after all...
         return nil
@@ -388,7 +383,12 @@ struct UiaController: RouteCollection {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
-        guard let requiredFlows = try await session.getData(for: "required_flows") as? [UiaFlow]
+        // We have the user_id that we extracted above.  Store it in the request's UIA session where all of the checkers can find it.
+        if let u = userId {
+            await session.setData(for: "user_id", value: u)
+        }
+        
+        guard let requiredFlows = await session.getData(for: "required_flows") as? [UiaFlow]
         else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find required flows for UIA session")
         }
@@ -424,7 +424,8 @@ struct UiaController: RouteCollection {
         //let success = try await checker.check(req: req, authType: authType)
         //if success {
         if let success = try? await checker.check(req: req, authType: authType),
-        success == true {
+           success == true
+        {
             // Ok cool, we cleared one stage
             // * Mark the stage as complete
             req.logger.debug("UIA controller: Marking stage \(authType) as complete")
