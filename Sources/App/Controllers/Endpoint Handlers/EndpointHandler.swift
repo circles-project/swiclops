@@ -21,6 +21,10 @@ struct Endpoint {
             PathComponent(stringLiteral: String($0))
         }
     }
+    
+    var description: String {
+        "\(method) \(path)"
+    }
 }
 
 extension Endpoint: Hashable {
