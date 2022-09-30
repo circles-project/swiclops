@@ -358,11 +358,23 @@ struct BSSpekeAuthChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        let dbRecord = try await BSSpekeUser.query(on: app.db)
-            .filter(\.$id == userId)
-            .first()
-        
-        return dbRecord != nil
+        switch authType {
+        case ENROLL_OPRF:
+        case ENROLL_SAVE:
+            // Everyone is always eligible to enroll
+            return true
+        case LOGIN_OPRF:
+        case LOGIN_VERIFY:
+            // Only users who have a public key set up can log in
+            let dbRecord = try await BSSpekeUser.query(on: app.db)
+                .filter(\.$id == userId)
+                .first()
+            
+            return dbRecord != nil
+        default:
+            // Any other auth type must be an error
+            return false
+        }
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {

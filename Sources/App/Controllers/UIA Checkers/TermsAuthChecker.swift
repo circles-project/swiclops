@@ -98,6 +98,7 @@ struct TermsAuthChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {
+        // Everyone is subject to the terms of service
         return true
     }
     

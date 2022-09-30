@@ -205,16 +205,27 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {
-        // Query the database for any records with the given userId
-        // If we found any valid records, return true
-        // Otherwise return false
-        if let _ = try? await PasswordHash.query(on: app.db)
-                                          .filter(\.$id == userId)
-                                          .first()
-        {
+        switch authType {
+        case AUTH_TYPE_ENROLL:
+            // Anyone is eligible to enroll at any time
             return true
-        }
-        else {
+            
+        case AUTH_TYPE_LOGIN:
+            // Query the database for any records with the given userId
+            // If we found any valid records, return true
+            // Otherwise return false
+            if let _ = try? await PasswordHash.query(on: app.db)
+                                              .filter(\.$id == userId)
+                                              .first()
+            {
+                return true
+            }
+            else {
+                return false
+            }
+            
+        default:
+            // Any other authType is some sort of error
             return false
         }
     }

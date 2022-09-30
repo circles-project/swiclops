@@ -238,13 +238,27 @@ struct EmailAuthChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        // Lookup whether the user is in the database
-        if let _ = try await UserEmailAddress.query(on: app.db)
-                                             .filter(\.$userId == userId)
-                                             .first()
-        {
+        switch authType {
+            
+        case ENROLL_REQUEST_TOKEN:
+        case ENROLL_SUBMIT_TOKEN:
+            // Everyone is always eligible to do an enrollment
             return true
-        } else {
+            
+        case LOGIN_REQUEST_TOKEN:
+        case LOGIN_SUBMIT_TOKEN:
+            // Lookup whether the user is in the database
+            if let _ = try await UserEmailAddress.query(on: app.db)
+                                                 .filter(\.$userId == userId)
+                                                 .first()
+            {
+                return true
+            } else {
+                return false
+            }
+            
+        default:
+            // Any other authType must be a mistake
             return false
         }
     }
