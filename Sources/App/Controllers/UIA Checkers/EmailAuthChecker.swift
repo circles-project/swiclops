@@ -141,6 +141,7 @@ struct EmailAuthChecker: AuthChecker {
             await session.setData(for: authType+".email", value: userEmail)
         }
 
+        req.logger.debug("Sent email with token \(code)")
         
         // So far so good.  Allow the user to progress to the next stage in the auth flow.
         return true

@@ -274,10 +274,14 @@ struct BSSpekeAuthChecker: AuthChecker {
         else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Must complete OPRF stage before attempting BS-SPEKE verification")
         }
-        
+                
         let A = try _b64decode(auth.A)
+        req.logger.debug("\tA\t\(Data(A).hex)")
+
         let V = try _b64decode(Vstring)
+        req.logger.debug("\tV\t\(Data(V).hex)")
         let verifier = try _b64decode(auth.verifier)
+        req.logger.debug("cv\t\t\(Data(verifier).hex)")
         
         bss.deriveSharedKey(A: A, V: V)
         
