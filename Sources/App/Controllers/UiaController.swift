@@ -452,13 +452,14 @@ struct UiaController: RouteCollection {
             var newParams: [String: [String: AnyCodable]] = [:]
             for flow in requiredFlows {
                 for stage in flow.stages {
-                    if nil != newParams[stage] {
+                    req.logger.debug("UIA controller: Getting params for stage [\(stage)]")
+                    if nil == newParams[stage] {
                         newParams[stage] = try? await checkers[stage]?.getParams(req: req, sessionId: sessionId, authType: stage, userId: userId)
                     }
                 }
             }
             
-            throw UiaIncomplete(flows: flows, completed: completed, params: newParams, session: sessionId)
+            throw UiaIncomplete(flows: requiredFlows, completed: completed, params: newParams, session: sessionId)
             
         } else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Authentication failed for type \(authType)")
