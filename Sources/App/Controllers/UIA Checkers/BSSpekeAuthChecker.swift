@@ -128,6 +128,7 @@ struct BSSpekeAuthChecker: AuthChecker {
                 // User doesn't seem to be enrolled with us.
                 // If they ever actually try to authenticate with us, then we will throw an exception
                 // But for now, we simply return no params
+                req.logger.warning("BS-SPEKE: User \(userId) doesn't seem to be enrolled for \(LOGIN_OPRF)")
                 return nil
             }
             return [
@@ -138,6 +139,10 @@ struct BSSpekeAuthChecker: AuthChecker {
         case LOGIN_VERIFY:
             // Client should have already completed the ..._OPRF stage
             // In fact, this is our sort-of roundabout way of returning the results from that stage
+            guard let userId = userId else {
+                req.logger.debug("BS-SPEKE: Not returning params for \(LOGIN_VERIFY) until we get a username")
+                return nil
+            }
             guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
                 throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
             }
@@ -150,6 +155,7 @@ struct BSSpekeAuthChecker: AuthChecker {
                 //throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Auth stage for OPRF must be completed before completing BS-SPEKE auth")
                 // Don't throw an error -- Maybe we just haven't gotten to the OPRF yet.
                 // Or maybe we're advertising BS-SPEKE to everyone, but this user just isn't enrolled.
+                req.logger.warning("BS-SPEKE: User \(userId) doesn't seem to be ready for \(LOGIN_VERIFY)")
                 return nil
             }
             return [
