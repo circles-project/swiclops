@@ -110,114 +110,102 @@ struct UiaController: RouteCollection {
 
     }
     
+    private func handle(req: Request, for endpoint: Endpoint, with handler: EndpointHandler) async throws -> Response {
+        let policyFlows = flows[endpoint] ?? defaultFlows
+        
+        try await handleUIA(req: req, flows: policyFlows)
+        
+        let response = try await handler.handle(req: req)
+        
+        req.logger.debug("UIA Controller: Back from endpoint handler")
+        req.logger.debug("UIA Controller: Got response = \(response.description)")
+
+        // First order of business: Did the response succeed?  If not, then we have nothing else to do.
+        guard response.status == .ok else {
+            return response
+        }
+        
+        // We need to check for a couple of special conditions here:
+        // 1. Did we just register a new user?
+        // 2. Did we just log someone in?
+                        
+        switch endpoint {
+        case .init(.POST, "/register"):
+            req.logger.debug("UIA Controller: Running post-register callbacks")
+
+            // Find all of the checkers that we just used
+            // Call .onEnrolled() for each of them
+            guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                req.logger.error("UIA Controller: Couldn't decode UIA request")
+                throw Abort(.internalServerError)
+            }
+            let auth = uiaRequest.auth
+            let session = req.uia.connectSession(sessionId: auth.session)
+            guard let userId = await session.getData(for: "user_id") as? String else {
+                req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
+                throw Abort(.internalServerError)
+            }
+            
+            let completed = await session.getCompleted()
+            //req.logger.debug("UIA Controller: Found completed stages: \(completed)")
+            for stage in completed {
+                guard let module = checkers[stage] else {
+                    req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
+                    throw Abort(.internalServerError)
+                }
+                //req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
+                try await module.onEnrolled(req: req, authType: stage, userId: userId)
+                //req.logger.debug("UIA Controller: Back from .onEnrolled() for \(stage)")
+            }
+            req.logger.debug("UIA Controller: Done with onEnrolled()")
+            
+        case .init(.POST, "/login"):
+            req.logger.debug("UIA Controller: Running post-login callbacks")
+
+            // Find all of the checkers that we just used
+            // Call .onLoggedIn() for each of them
+            guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                req.logger.error("UIA Controller: Couldn't decode UIA request")
+                throw Abort(.internalServerError)
+            }
+            let auth = uiaRequest.auth
+            let session = req.uia.connectSession(sessionId: auth.session)
+            guard let userId = await session.getData(for: "user_id") as? String else {
+                req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
+                throw Abort(.internalServerError)
+            }
+            let completed = await session.getCompleted()
+            req.logger.debug("UIA Controller: Found completed stages: \(completed)")
+            for stage in completed {
+                req.logger.debug("UIA Controller: Calling .onLoggedIn() for \(stage)")
+                guard let module = checkers[stage] else {
+                    req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
+                    throw Abort(.internalServerError)
+                }
+                try await module.onLoggedIn(req: req, userId: userId)
+                req.logger.debug("UIA Controller: Back from .onLoggedIn() for \(stage)")
+            }
+            req.logger.debug("UIA Controller: Done with onLoggedIn()")
+
+            
+        default:
+            req.logger.debug("UIA Controller: No special post-processing for \(endpoint)")
+            break
+        }
+        
+        // Finally, after all that, now we can return the response that we received way up above
+        return response
+    }
+    
+    
     func boot(routes: RoutesBuilder) throws {
         
         let matrixCSAPI = routes.grouped("_matrix", "client", ":version")
                                 .grouped(MatrixUserAuthenticator(homeserver: self.homeserver))
         
         for (endpoint,handler) in handlers {
-
             matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
-                let policyFlows = flows[endpoint] ?? defaultFlows
-                
-                try await handleUIA(req: req, flows: policyFlows)
-                
-                let response = try await handler.handle(req: req)
-                
-                req.logger.debug("UIA Controller: Back from endpoint handler")
-                req.logger.debug("UIA Controller: Got response = \(response.description)")
-
-                // First order of business: Did the response succeed?  If not, then we have nothing else to do.
-                guard response.status == .ok else {
-                    return response
-                }
-                
-                // We need to check for a couple of special conditions here:
-                // 1. Did we just register a new user?
-                // 2. Did we just log someone in?
-                                
-                switch endpoint {
-                case .init(.POST, "/register"):
-                    req.logger.debug("UIA Controller: Running post-register callbacks")
-
-                    // Find all of the checkers that we just used
-                    // Call .onEnrolled() for each of them
-                    guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
-                        req.logger.error("UIA Controller: Couldn't decode UIA request")
-                        throw Abort(.internalServerError)
-                    }
-                    let auth = uiaRequest.auth
-                    let session = req.uia.connectSession(sessionId: auth.session)
-                    guard let userId = await session.getData(for: "user_id") as? String else {
-                        req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
-                        throw Abort(.internalServerError)
-                    }
-                    
-                    let completed = await session.getCompleted()
-                    req.logger.debug("UIA Controller: Found completed stages: \(completed)")
-                    for stage in completed {
-                        guard let module = checkers[stage] else {
-                            req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
-                            throw Abort(.internalServerError)
-                        }
-                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
-                        try await module.onEnrolled(req: req, authType: stage, userId: userId)
-                        req.logger.debug("UIA Controller: Back from .onEnrolled() for \(stage)")
-                    }
-                    req.logger.debug("UIA Controller: Done with onEnrolled()")
-                    
-                case .init(.POST, "/login"):
-                    req.logger.debug("UIA Controller: Running post-login callbacks")
-                    
-                    /*
-                      // FIXME: Move this stuff into LoginHandler
-                    // Now supposing we have a valid /login response, we should be able to extract the user_id from it
-                    struct MinimalLoginResponse: Content {
-                        var userId: String
-                        
-                        enum CodingKeys: String, CodingKey {
-                            case userId = "user_id"
-                        }
-                    }
-                    guard let backendResponse = try? response.content.decode(MinimalLoginResponse.self)
-                    else {
-                        req.logger.error("UIA Controller: Homeserver /login returned 200 OK but we can't find a user_id")
-                        throw Abort(.internalServerError)
-                    }
-                    let userId = backendResponse.userId
-                    req.logger.debug("UIA Controller: The user logged in as [\(userId)]")
-                    */
-
-                    // Find all of the checkers that we just used
-                    // Call .onLoggedIn() for each of them
-                    guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
-                        req.logger.error("UIA Controller: Couldn't decode UIA request")
-                        throw Abort(.internalServerError)
-                    }
-                    let auth = uiaRequest.auth
-                    let session = req.uia.connectSession(sessionId: auth.session)
-                    guard let userId = await session.getData(for: "user_id") as? String else {
-                        req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
-                        throw Abort(.internalServerError)
-                    }
-                    let completed = await session.getCompleted()
-                    req.logger.debug("UIA Controller: Found completed stages: \(completed)")
-                    for stage in completed {
-                        req.logger.debug("UIA Controller: Calling .onEnrolled() for \(stage)")
-                        guard let module = checkers[stage] else {
-                            req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
-                            throw Abort(.internalServerError)
-                        }
-                        try await module.onLoggedIn(req: req, userId: userId)
-                    }
-                    
-                default:
-                    req.logger.debug("UIA Controller: No special processing for this endpoint")
-                    break
-                }
-                
-                // Finally, after all that, now we can return the response that we received way up above
-                return response
+                return try await handle(req: req, for: endpoint, with: handler)
             }
         }
         
