@@ -452,7 +452,7 @@ struct UiaController: RouteCollection {
             var newParams: [String: [String: AnyCodable]] = [:]
             for flow in requiredFlows {
                 for stage in flow.stages {
-                    req.logger.debug("UIA controller: Getting params for stage [\(stage)]")
+                    //req.logger.debug("UIA controller: Getting params for stage [\(stage)]")
                     if nil == newParams[stage] {
                         newParams[stage] = try? await checkers[stage]?.getParams(req: req, sessionId: sessionId, authType: stage, userId: userId)
                     }
