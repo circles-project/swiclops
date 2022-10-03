@@ -39,7 +39,7 @@ struct CreateTokenCommand: Command {
             expirationDate = Date(timeIntervalSinceNow: seconds)
         }
         
-        var token = RegistrationToken(id: signature.token,
+        let token = RegistrationToken(id: signature.token,
                                       createdBy: signature.user,
                                       slots: signature.slots,
                                       expiresAt: expirationDate)
