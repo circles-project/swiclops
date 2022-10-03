@@ -70,19 +70,12 @@ struct TermsAuthChecker: AuthChecker {
     }
     
     func _updateDatabase(for req: Request, userId: String) async throws {
-        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
-            throw Abort(.badRequest)
-        }
-        //let sessionId = uiaRequest.auth.session
-        //let session = req.uia.connectSession(sessionId: sessionId)
-        
         var dbRecords: [AcceptedTerms] = []
         for (name,policy) in self.policies {
             let version = policy.version
             dbRecords.append(AcceptedTerms(policy: name, userId: userId, version: version))
         }
         try await dbRecords.create(on: req.db)
-
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
