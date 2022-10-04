@@ -157,14 +157,9 @@ Request
     ...
     "auth": {
         "session": "abcdwxyz",
-        "type": "m.enroll.bsspeke-ecc.enroll",
+        "type": "m.enroll.bsspeke-ecc.verify",
         "A": "213423436457546745686875678523123113...",        // base64-encoded client's ephemeral public key
-        "verifier": "32434534574562341232312415456789789...",  // base64-encoded client verifier
-        "phf_params": {
-            "name": "argon2i",
-            "iterations": 3,
-            "blocks": 100000
-        }
+        "verifier": "32434534574562341232312415456789789..."  // base64-encoded client verifier
     }
 }
 ```
