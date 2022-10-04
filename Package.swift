@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0"),
         .package(url: "https://github.com/Flight-School/AnyCodable", from: "0.6.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
-        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.2.0"),
+        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.3.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "3.0.0"),
     ],
     targets: [
