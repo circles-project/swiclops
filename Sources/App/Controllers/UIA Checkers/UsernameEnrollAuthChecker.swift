@@ -189,23 +189,34 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let pending = Username(username, status: .pending, reason: sessionId)
         try await pending.save(on: req.db)
         
+        let session = req.uia.connectSession(sessionId: sessionId)
+        await session.setData(for: "username", value: username)
+        
         return true
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
-        throw Abort(.notImplemented)
+        // Do nothing -- Should never happen anyway
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
-        throw Abort(.notImplemented)
+        // First extract the basic username from the fully-qualified Matrix user id
+        let localpart = userId.split(separator: ":").first!
+        let username = localpart.trimmingCharacters(in: .init(charactersIn: "@"))
+
+        // Then save this username in the database in a currently-enrolled state
+        let record = Username(username, status: .enrolled)
+        try await record.save(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        throw Abort(.notImplemented)
+        // If you have a user id, then yes you have a username
+        return true
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        return true
+        // If you already have a user id, then you have no need to enroll for a new one
+        return false
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
