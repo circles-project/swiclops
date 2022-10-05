@@ -54,7 +54,7 @@ struct UiaController: RouteCollection {
         }
     }
     
-    init(app: Application, config: Config, matrixConfig: MatrixConfig) {
+    init(app: Application, config: Config, matrixConfig: MatrixConfig) throws {
         self.app = app
         self.config = config
         
@@ -71,8 +71,10 @@ struct UiaController: RouteCollection {
         
         
         // Set up our UIA checker modules
+        let usernameChecker = try UsernameEnrollAuthChecker(app: app)
         let authCheckerModules: [AuthChecker] = [
             DummyAuthChecker(),
+            usernameChecker,
             PasswordAuthChecker(app: app),
             TermsAuthChecker(app: app),
             TokenRegistrationAuthChecker(),

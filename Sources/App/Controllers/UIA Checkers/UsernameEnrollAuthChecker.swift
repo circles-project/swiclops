@@ -13,12 +13,27 @@ import AnyCodable
 struct UsernameEnrollAuthChecker: AuthChecker {
     let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
     
+    let app: Application
     var badWords: Set<String>
     
-    init(badWordList: [String]) {
-        self.badWords = Set(badWordList.map {
-            $0.lowercased().replacingOccurrences(of: " ", with: "")
-        })
+    init(app: Application) throws {
+
+        
+        self.app = app
+
+        let results = try? BadWord.query(on: app.db).all().wait()
+        
+        if let badWordList = results {
+            self.badWords = Set(badWordList.compactMap {
+                guard let word = $0.id else {
+                    return nil
+                }
+                return word.lowercased().replacingOccurrences(of: " ", with: "")
+            })
+        } else {
+            self.badWords = []
+        }
+        app.logger.debug("UsernameEnrollAuthChecker: Loaded \(self.badWords.count) bad words")
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -29,59 +44,8 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         [:]
     }
     
-    func check(req: Request, authType: String) async throws -> Bool {
-        struct UsernameEnrollUiaRequest: Content {
-            struct UsernameAuthDict: UiaAuthDict {
-                var type: String
-                var session: String
-                var username: String
-            }
-            var auth: UsernameAuthDict
-        }
-        
-        guard let usernameRequest = try? req.content.decode(UsernameEnrollUiaRequest.self) else {
-            let msg = "Couldn't parse \(AUTH_TYPE_ENROLL_USERNAME) request"
-            req.logger.error("\(msg)") // The need for this dance is moronic.  Thanks SwiftLog.
-            throw MatrixError(status: .badRequest, errcode: .badJson, error: msg)
-        }
-        let sessionId = usernameRequest.auth.session
-        let username = usernameRequest.auth.username.lowercased()
-        
-        // Now we run our sanity checks on the requested username
-        
-        // Is it too short, or too long?
-        guard username.count > 0,
-              username.count < 256
-        else {
-            let msg = "Username must be at least 1 character and no more than 255 characters"
-            req.logger.debug("\(msg)")
-            throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: msg)
-        }
-        
-        // Does it look like it's trying to be misleading or possibly impersonate another user?
-        // e.g. _bob or bob_ or bob. or .bob
-        guard let first = username.first,
-              let last = username.last,
-              first.isPunctuation == false,
-              last.isPunctuation == false
-        else {
-            let msg = "Username may not start or end with punctuation"
-            req.logger.debug("\(msg)")
-            throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: msg)
-        }
-        
-        // Is the requested username a valid Matrix username according to the spec?
-        // Dangit, the new Regex is only available in Swift 5.7+
-        //let regex = try Regex("([A-z]|[a-z]|[0-9]|[-_\.])+")
-        // Doing it the old fashioned way -- Thank you Paul Hudson https://www.hackingwithswift.com/articles/108/how-to-use-regular-expressions-in-swift
-        let range = NSRange(location: 0, length: username.utf16.count)
-        let regex = try! NSRegularExpression(pattern: "([A-z]|[a-z]|[0-9]|[-_\\.])+")
-        if regex.rangeOfFirstMatch(in: username, range: range).length != range.length {
-            let msg = "Username must consist of ONLY alphanumeric characters and dot, dash, and underscore"
-            req.logger.debug("\(msg)")
-            throw MatrixError(status: .badRequest, errcode: .invalidUsername, error: msg)
-        }
-        
+    
+    private func checkForBadWords(req: Request, username: String) throws {
         // Is the username a known bad word?
         if badWords.contains(username) {
             req.logger.debug("Username is a known bad word")
@@ -137,6 +101,65 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                     throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is not available")
                 }
             }
+        }
+    }
+    
+    func check(req: Request, authType: String) async throws -> Bool {
+        struct UsernameEnrollUiaRequest: Content {
+            struct UsernameAuthDict: UiaAuthDict {
+                var type: String
+                var session: String
+                var username: String
+            }
+            var auth: UsernameAuthDict
+        }
+        
+        guard let usernameRequest = try? req.content.decode(UsernameEnrollUiaRequest.self) else {
+            let msg = "Couldn't parse \(AUTH_TYPE_ENROLL_USERNAME) request"
+            req.logger.error("\(msg)") // The need for this dance is moronic.  Thanks SwiftLog.
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: msg)
+        }
+        let sessionId = usernameRequest.auth.session
+        let username = usernameRequest.auth.username.lowercased()
+        
+        // Now we run our sanity checks on the requested username
+        
+        // Is it too short, or too long?
+        guard username.count > 0,
+              username.count < 256
+        else {
+            let msg = "Username must be at least 1 character and no more than 255 characters"
+            req.logger.debug("\(msg)")
+            throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: msg)
+        }
+        
+        // Does it look like it's trying to be misleading or possibly impersonate another user?
+        // e.g. _bob or bob_ or bob. or .bob
+        guard let first = username.first,
+              let last = username.last,
+              first.isPunctuation == false,
+              last.isPunctuation == false
+        else {
+            let msg = "Username may not start or end with punctuation"
+            req.logger.debug("\(msg)")
+            throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: msg)
+        }
+        
+        // Is the requested username a valid Matrix username according to the spec?
+        // Dangit, the new Regex is only available in Swift 5.7+
+        //let regex = try Regex("([A-z]|[a-z]|[0-9]|[-_\.])+")
+        // Doing it the old fashioned way -- Thank you Paul Hudson https://www.hackingwithswift.com/articles/108/how-to-use-regular-expressions-in-swift
+        let range = NSRange(location: 0, length: username.utf16.count)
+        let regex = try! NSRegularExpression(pattern: "([A-z]|[a-z]|[0-9]|[-_\\.])+")
+        if regex.rangeOfFirstMatch(in: username, range: range).length != range.length {
+            let msg = "Username must consist of ONLY alphanumeric characters and dot, dash, and underscore"
+            req.logger.debug("\(msg)")
+            throw MatrixError(status: .badRequest, errcode: .invalidUsername, error: msg)
+        }
+        
+        // Does the requested username contain any obvious bad words?
+        if badWords.count > 0 {
+            try checkForBadWords(req: req, username: username)
         }
         
         // Is the username already taken?

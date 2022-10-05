@@ -27,47 +27,6 @@ public func configure(_ app: Application) throws {
     // Enable compression in the HTTP client
     app.http.client.configuration.decompression = .enabled(limit: .ratio(100))
 
-    
-    /*
-    let testConfigString = """
-    uia:
-      domain: "circu.li"
-      homeserver: "https://matrix.circu.li/"
-      registration_shared_secret: "hunter2"
-      bsspeke_oprf_secret: "0123456789abcdef0123456789abcdef"
-      default_flows:
-        - stages: ["m.login.password"]
-        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
-      routes:
-        - path: "/login"
-          method: "POST"
-          flows:
-            - stages: ["m.login.dummy", "m.login.foo"]
-            - stages: ["m.login.terms", "m.login.password"]
-        - path: "/register"
-          method: "POST"
-          flows:
-            - stages: ["m.login.registration_token", "m.login.terms", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.password"]
-        - path: "/account/auth"
-          method: "POST"
-          flows:
-            - stages: ["m.login.password"]
-            - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
-            
-    #database:
-    #  type: postgres
-    #  hostname: localhost
-    #  port: 5432
-    #  username: swiclops
-    #  password: hunter2
-    #  database: swiclops
-    database:
-      type: sqlite
-      filename: "swiclops.sqlite"
-    """
-    let config = try AppConfig(string: testConfigString)
-    */
-
     guard let config = try? _loadConfiguration() else {
         app.logger.error("No config file found")
         throw Abort(.internalServerError)
@@ -89,6 +48,7 @@ public func configure(_ app: Application) throws {
     }
     
     // migrations
+    app.logger.info("Adding migrations")
     app.migrations.add(CreateAcceptedTerms())
     app.migrations.add(CreateBSSpekeUsers())
     app.migrations.add(CreatePasswordHashes())
@@ -96,10 +56,12 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateRegistrationTokens())
     app.migrations.add(CreateSubscriptions())
     app.migrations.add(CreateUserEmailAddresses())
+    app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
     
     // routes
-    let uiaController = UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
+    app.logger.info("Configuring routes")
+    let uiaController = try UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
     try app.register(collection: uiaController)
     let adminController = AdminApiController(app: app, config: config.admin, matrixConfig: config.matrix)
     try app.register(collection: adminController)
