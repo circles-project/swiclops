@@ -96,6 +96,7 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateRegistrationTokens())
     app.migrations.add(CreateSubscriptions())
     app.migrations.add(CreateUserEmailAddresses())
+    app.migrations.add(CreateUsernames())
     
     // routes
     let uiaController = UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
