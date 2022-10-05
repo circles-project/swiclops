@@ -73,6 +73,7 @@ public func configure(_ app: Application) throws {
     app.commands.use(ListTokensCommand(), as: "list-tokens")
     app.commands.use(SetPasswordCommand(), as: "set-password")
     app.commands.use(LoadBadWordsCommand(), as: "load-badwords")
+    app.commands.use(LoadReservedUsernamesCommand(), as: "load-reserved-usernames")
 }
 
 private func _loadConfiguration() throws -> AppConfig {
