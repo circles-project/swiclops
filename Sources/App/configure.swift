@@ -68,9 +68,11 @@ public func configure(_ app: Application) throws {
     //try routes(app)
     
     // commands
+    app.logger.info("Configuring commands")
     app.commands.use(CreateTokenCommand(), as: "create-token")
     app.commands.use(ListTokensCommand(), as: "list-tokens")
     app.commands.use(SetPasswordCommand(), as: "set-password")
+    app.commands.use(LoadBadWordsCommand(), as: "load-badwords")
 }
 
 private func _loadConfiguration() throws -> AppConfig {
