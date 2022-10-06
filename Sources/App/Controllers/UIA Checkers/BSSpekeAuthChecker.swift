@@ -114,7 +114,7 @@ struct BSSpekeAuthChecker: AuthChecker {
             return [
                 "curve" : AnyCodable("curve25519"),
                 "hash_function" : AnyCodable("blake2b"), // FIXME Make this actually configurable
-                //"phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
+                "phf_params" : AnyCodable(PhfParams(name: "argon2i", iterations: 3, blocks: 100000)),
             ]
         case LOGIN_OPRF:
             guard let userId = userId else {
