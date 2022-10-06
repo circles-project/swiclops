@@ -256,7 +256,18 @@ struct UiaController: RouteCollection {
         
         // Maybe it's a new user trying to register
         if let registerRequest = try? req.content.decode(BasicRegisterRequestBody.self) {
-            return canonicalizeUserId(registerRequest.username)
+            // Now we are storing the username in the UIA session
+            guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+                req.logger.warning("Couldn't parse /register request as UIA...  Not a UIA request???")
+                return nil
+            }
+            let auth = uiaRequest.auth
+            let session = req.uia.connectSession(sessionId: auth.session)
+            guard let username = await session.getData(for: "username") as? String else {
+                req.logger.warning("Couldn't get username for /register UIA request")
+                return nil
+            }
+            return canonicalizeUserId(username)
         }
 
         // Every attempt to find a user id has failed

@@ -14,7 +14,9 @@ struct BasicRegisterRequestBody: Content {
     var initialDeviceDisplayName: String?
     var password: String?
     var refreshToken: Bool?
-    var username: String
+    // Moving the username out of the endpoint request and into a new UIA stage "m.enroll.username"
+    // The idea is that now we can check / validate the username before making the user do all the rest of the UIA
+    //var username: String
     
     enum CodingKeys: String, CodingKey {
         case deviceId = "device_id"
@@ -22,7 +24,7 @@ struct BasicRegisterRequestBody: Content {
         case initialDeviceDisplayName = "initial_device_display_name"
         case password
         case refreshToken = "refresh_token"
-        case username
+        //case username
     }
 }
 
@@ -47,13 +49,13 @@ struct SharedSecretRegisterRequestBody: Content {
         case password
     }
     
-    init(_ basicRequest: BasicRegisterRequestBody, nonce: String, sharedSecret: String) {
+    init(_ basicRequest: BasicRegisterRequestBody, username: String, nonce: String, sharedSecret: String) {
         self.deviceId = basicRequest.deviceId
         self.inhibitLogin = basicRequest.inhibitLogin
         self.initialDeviceDisplayName = basicRequest.initialDeviceDisplayName
         self.refreshToken = basicRequest.refreshToken
         
-        self.username = basicRequest.username
+        self.username = username
         // Ok this is dumb, but Synapse requires a password here
         // So fine, we'll generate 128 random bits and throw them away when we're done
         self.password = String(format: "%llx%llx", UInt64.random(), UInt64.random())
@@ -131,15 +133,24 @@ struct RegistrationHandler: EndpointHandler {
         }
         if let params = try? req.query.decode(RegisterQueryParams.self) {
             guard params.kind == .user else {
+                req.logger.error("Guest registration not suppported")
                 throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Guest registration not supported")
             }
         }
         
-        guard let clientRequest = try? req.content.decode(BasicRegisterRequestBody.self)
+        guard let clientRequest = try? req.content.decode(BasicRegisterRequestBody.self),
+              let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
+            req.logger.error("Couldn't parse /register request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /register request")
         }
-        req.logger.debug("RegistrationHandler: username = [\(clientRequest.username)")
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
+        guard let username = await session.getData(for: "username") as? String else {
+            req.logger.error("Couldn't find username")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find username")
+        }
+        req.logger.debug("RegistrationHandler: username = [\(username)")
         
         // We don't really handle /register requests all by ourselves
         // We handle all the authentication parts, but the "real" homeserver is the one who actually creates the account
@@ -162,7 +173,7 @@ struct RegistrationHandler: EndpointHandler {
             req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
                         
             // Build the shared-secret request from the normal request and the crypto material
-            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, nonce: nonce, sharedSecret: self.config.sharedSecret)
+            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: self.config.sharedSecret)
             
             // We have to use the special admin API, not the normal client-server endpoint
             let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
