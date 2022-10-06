@@ -219,7 +219,9 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         // Doing this properly requires that we make sure it really was *this* UIA session that had reserved the username (and that the username is still pending, and hasn't been grabbed by someone else...  Like maybe our user started signing up and then walked away for an hour before completing the last steps.  That's not gonna cut it buddy; somebody else is free to take that username after 20 minutes.  So we need to check for that.
         try await Username.query(on: req.db)
                           .set(\.$status, to: .enrolled)
-                          .filter(\.$id == username && \.$status == .pending && \.$reason == sessionId)
+                          .filter(\.$id == username)
+                          .filter(\.$status == .pending)
+                          .filter(\.$reason == sessionId)
                           .update()
             
     }
