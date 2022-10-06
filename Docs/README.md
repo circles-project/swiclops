@@ -1,8 +1,9 @@
 # Swiclops Documentation
 
 ## Auth Modules
-* [BS-SPEKE](./BS-SPEKE.md)
-* [Email](./Email.md)
-* [Terms of Service](./Terms.md)
 * [Registration Token](./Registration-Token.md)
+* [Terms of Service](./Terms.md)
+* [Username](./Username.md)
+* [Email](./Email.md)
+* [BS-SPEKE](./BS-SPEKE.md)
 * [Password](./Password.md)
