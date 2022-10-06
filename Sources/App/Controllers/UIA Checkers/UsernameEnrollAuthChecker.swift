@@ -203,10 +203,25 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         // First extract the basic username from the fully-qualified Matrix user id
         let localpart = userId.split(separator: ":").first!
         let username = localpart.trimmingCharacters(in: .init(charactersIn: "@"))
+        
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            let msg = "Could not parse UIA request"
+            req.logger.error("\(msg)")
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: msg)
+        }
+        let auth = uiaRequest.auth
+        let sessionId = auth.session
 
         // Then save this username in the database in a currently-enrolled state
-        let record = Username(username, status: .enrolled)
-        try await record.save(on: req.db)
+        // Doh, doing this naively results in a race condition
+        //let record = Username(username, status: .enrolled)
+        //try await record.save(on: req.db)
+        // Doing this properly requires that we make sure it really was *this* UIA session that had reserved the username (and that the username is still pending, and hasn't been grabbed by someone else...  Like maybe our
+        try await Username.query(on: req.db)
+                          .set(\.$status, to: .enrolled)
+                          .filter(\.$id == username && \.$status == .pending && \.$reason == sessionId)
+                          .update()
+            
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
