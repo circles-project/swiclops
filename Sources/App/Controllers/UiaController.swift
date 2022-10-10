@@ -422,11 +422,14 @@ struct UiaController: RouteCollection {
         }
         
         
-        //let success = try await checker.check(req: req, authType: authType)
-        //if success {
-        if let success = try? await checker.check(req: req, authType: authType),
-           success == true
-        {
+        // We don't want the optional try here, because it "consumes" the thrown exception instead of sending the Matrix error response back to the client.
+        // Instead we want the regular try, which will let the checker generate a MatrixError for our Middlware to send.
+        let success = try await checker.check(req: req, authType: authType)
+        // In the case that the checker did not throw an error but actually returned a bool, then we have to check the true/false response code and handle it appropriately.
+        if success {
+        //if let success = try? await checker.check(req: req, authType: authType),
+        //   success == true
+        //{
             // Ok cool, we cleared one stage
             // * Mark the stage as complete
             req.logger.debug("UIA controller: Marking stage \(authType) as complete")
