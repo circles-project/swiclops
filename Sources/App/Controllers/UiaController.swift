@@ -40,7 +40,7 @@ struct UiaController: RouteCollection {
         struct UiaRoute: Codable {
             var path: String
             var method: HTTPMethod
-            var flows: [UiaFlow]
+            var flows: [UiaFlow]?
         }
         
         enum CodingKeys: String, CodingKey {
@@ -65,13 +65,12 @@ struct UiaController: RouteCollection {
         self.homeserver = matrixConfig.homeserver
         
         // Set up our map from endpoints to UIA flows
+        self.defaultFlows = config.defaultFlows
         self.flows = [:]
         for route in config.routes {
             let endpoint = Endpoint(route.method, route.path)
-            self.flows[endpoint] = route.flows
+            self.flows[endpoint] = route.flows ?? defaultFlows
         }
-        self.defaultFlows = config.defaultFlows
-        
         
         // Set up our UIA checker modules
         let usernameChecker = try UsernameEnrollAuthChecker(app: app)
