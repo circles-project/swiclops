@@ -28,6 +28,7 @@ struct UiaController: RouteCollection {
     // This way, we can avoid bothering them again when they just authed for another request
     var cache: ShardedActorDictionary<MatrixUser,Date>
     
+    // MARK: Config
     struct Config: Codable {
         var backendAuth: BackendAuthConfig
         //var domain: String
@@ -61,6 +62,7 @@ struct UiaController: RouteCollection {
         }
     }
     
+    // MARK: init
     init(app: Application, config: Config, matrixConfig: MatrixConfig) throws {
         self.app = app
         self.config = config
@@ -120,6 +122,7 @@ struct UiaController: RouteCollection {
 
     }
     
+    // MARK: handle
     private func handle(req: Request, for endpoint: Endpoint, with handler: EndpointHandler) async throws -> Response {
         let policyFlows = flows[endpoint] ?? defaultFlows
         
@@ -210,7 +213,7 @@ struct UiaController: RouteCollection {
         return response
     }
     
-    
+    // MARK: boot
     func boot(routes: RoutesBuilder) throws {
         
         let matrixCSAPI = routes.grouped("_matrix", "client", ":version")
@@ -237,17 +240,20 @@ struct UiaController: RouteCollection {
 
     }
     
+    // MARK: _getNewSessionID
     private func _getNewSessionID() -> String {
         let length = 12
         return String( (0 ..< length).map { _ in "0123456789".randomElement()! } )
     }
     
+    // MARK: canonicalizeUserId
     private func canonicalizeUserId(_ username: String) -> String {
         let firstPart = username.starts(with: "@") ? username : "@" + username
         let userId = firstPart.contains(":") ? firstPart : firstPart + ":" + domain
         return userId
     }
     
+    // MARK: _getUserId
     private func _getUserId(req: Request) async throws -> String? {
         // First look for a logged-in Matrix user with a Bearer token.
         // Our MatrixUserAuthenticator will have found the user_id for these users.
@@ -286,6 +292,7 @@ struct UiaController: RouteCollection {
         return nil
     }
     
+    // MARK: _getRequiredFlows
     private func _getRequiredFlows(flows: [UiaFlow], for user: String?, making request: Request) async throws -> [UiaFlow] {
         
         guard let userId = user else {
@@ -343,6 +350,8 @@ struct UiaController: RouteCollection {
         
         return requiredFlows
     }
+    
+    // MARK: handleUIA
 
     // FIXME Find a better way to cache the list of actually required & useful flows inside the UIA session
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
