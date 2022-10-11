@@ -145,9 +145,10 @@ struct UiaController: RouteCollection {
             }
             let auth = uiaRequest.auth
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = await session.getData(for: "user_id") as? String else {
-                req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
-                throw Abort(.internalServerError)
+            guard let userId = try await _getUserId(req: req) else {
+                let msg = "UIA Controller: Couldn't find a user id for this request"
+                req.logger.error("\(msg)")
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
             }
             
             let completed = await session.getCompleted()
@@ -257,7 +258,7 @@ struct UiaController: RouteCollection {
         }
         
         // Maybe it's a new user trying to register
-        if let registerRequest = try? req.content.decode(BasicRegisterRequestBody.self) {
+        if req.url.path.hasSuffix("/register") {
             // Now we are storing the username in the UIA session
             guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
                 req.logger.warning("Couldn't parse /register request as UIA...  Not a UIA request???")
@@ -339,6 +340,10 @@ struct UiaController: RouteCollection {
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
                 
         let userId = try await _getUserId(req: req)
+        
+        // FIXME: Add an early check -- Has this user, with this access token, recently authenticated with us?
+        //        It should be a very quick thing, like 30 seconds
+        //        But if so, don't bother them again so soon.  Just return true.
                 
         // Does this request already have a session associated with it?
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
