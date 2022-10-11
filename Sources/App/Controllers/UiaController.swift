@@ -138,8 +138,27 @@ struct UiaController: RouteCollection {
             return response
         }
         
+        // Did we just start a new session?
+        // If so, add it to our UIA cache so the user won't have to re-auth immediately for things like cross-signing
+        struct NewSessionResponse: Content {
+            var userId: String
+            var accessToken: String
+            
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case accessToken = "access_token"
+            }
+        }
+        if let nsr = try? response.content.decode(NewSessionResponse.self) {
+            let user = MatrixUser(userId: nsr.userId, accessToken: nsr.accessToken)
+            let now = Date()
+            await self.cache.set(user, now)
+        }
+        
+        
+        // Now run any callbacks, as necessary
         // We need to check for a couple of special conditions here:
-        // 1. Did we just register a new user?
+        // 1. Did we just enroll for something or register a new user?
         // 2. Did we just log someone in?
                         
         switch endpoint {
