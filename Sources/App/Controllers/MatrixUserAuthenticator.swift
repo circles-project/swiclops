@@ -7,7 +7,7 @@
 
 import Vapor
 
-struct MatrixUser: Authenticatable {
+struct MatrixUser: Authenticatable, Hashable {
     var userId: String
     var accessToken: String
 }
@@ -27,7 +27,7 @@ struct MatrixUserAuthenticator: AsyncBearerAuthenticator {
     ) async throws {
         
         if let cachedUserId = await self.cache.get(bearer.token) {
-            request.auth.login(MatrixUser(userId: cachedUserId))
+            request.auth.login(MatrixUser(userId: cachedUserId, accessToken: bearer.token))
             return
         }
         

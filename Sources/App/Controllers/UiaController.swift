@@ -26,7 +26,7 @@ struct UiaController: RouteCollection {
     
     // For remembering when a given client last completed UIA with us
     // This way, we can avoid bothering them again when they just authed for another request
-    var cache: ShardedActorDictionary<(String,String),Date>
+    var cache: ShardedActorDictionary<MatrixUser,Date>
     
     struct Config: Codable {
         var backendAuth: BackendAuthConfig
@@ -357,7 +357,7 @@ struct UiaController: RouteCollection {
         // First check -- Is this a "normal" UIA request for a logged-in user, and not a login or registration etc?
         if let user = req.auth.get(MatrixUser.self) {
             // Second check -- Has the user recently completed UIA with us?
-            if let lastAuthedTimestamp = await self.cache.get((user.userId,user.accessToken)) {
+            if let lastAuthedTimestamp = await self.cache.get(user) {
                 let now = Date()
                 // Third check -- Was the previous UIA success in the very recent past?
                 if lastAuthedTimestamp.distance(to: now) < 30.0 {
@@ -494,7 +494,7 @@ struct UiaController: RouteCollection {
                     // Save the current timestamp in our cache, in case the same client needs to hit another UIA endpoint in the next few seconds
                     if let user = req.auth.get(MatrixUser.self) {
                         let now = Date()
-                        try await self.cache.set((user.userId, user.accessToken), now)
+                        await self.cache.set(user, now)
                     }
                     
                     return
