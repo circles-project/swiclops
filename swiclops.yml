@@ -40,12 +40,15 @@ uia:
     - path: "/account/auth"
       method: "POST"
       flows:
-        - stages: ["m.login.password"]
-        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
+        - stages: ["m.login.password", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
     - path: "/account/deactivate"
       method: "POST"
     - path: "/account/password"
       method: "POST"
+      flows:
+        - stages: ["m.login.password", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
     - path: "/account/3pid/add"
       method: "POST"
     - path: "/devices/:deviceId"
