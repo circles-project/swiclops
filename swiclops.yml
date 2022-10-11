@@ -44,8 +44,14 @@ uia:
         - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
     - path: "/account/deactivate"
       method: "POST"
+    - path: "/account/password"
+      method: "POST"
+    - path: "/account/3pid/add"
+      method: "POST"
     - path: "/devices/:deviceId"
       method: "DELETE"
+    - path: "/delete_devices"
+      method: "POST"
     - path: "/keys/device_signing/upload"
       method: "POST"
 
