@@ -14,6 +14,13 @@ uia:
     oprf_secret: "hunter2"
   email:
     postmark_token: "hunter2"
+  terms:
+    policies:
+      - name: "privacy"
+        version: "1.0"
+        en:
+          name: "Privacy Policy"
+          url: "https://www.example.com/privacy/en/1.0.html"
   default_flows:
     - stages: ["m.login.password"]
     - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]

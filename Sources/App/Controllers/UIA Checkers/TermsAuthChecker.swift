@@ -28,6 +28,7 @@ struct TermsAuthChecker: AuthChecker {
             var url: URL
         }
         
+        var name: String
         var version: String
         // FIXME this is the awfulest f**king kludge I think I've ever written
         // But the Matrix JSON struct here is pretty insane
@@ -38,17 +39,25 @@ struct TermsAuthChecker: AuthChecker {
         var en: LocalizedPolicy?
     }
     
-    var policies: [String:Policy]
+    //var policies: [String:Policy]
     var app: Application
+    var config: Config
     
-    init(app: Application) {
+    struct Config: Codable {
+        var policies: [Policy]
+    }
+    
+    init(app: Application, config: Config) {
+        /*
         let privacy = Policy(version: "1.0",
                              en: .init(name: "Privacy Policy",
                                        url: URL(string: "https://www.example.com/privacy/en/1.0.html")!
                                        )
                              )
         self.policies = [ "privacy": privacy ]
+        */
         self.app = app
+        self.config = config
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -56,7 +65,7 @@ struct TermsAuthChecker: AuthChecker {
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
-        return ["policies": AnyCodable(self.policies)]
+        return ["policies": AnyCodable(self.config.policies)]
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
@@ -71,7 +80,8 @@ struct TermsAuthChecker: AuthChecker {
     
     func _updateDatabase(for req: Request, userId: String) async throws {
         var dbRecords: [AcceptedTerms] = []
-        for (name,policy) in self.policies {
+        for policy in self.config.policies {
+            let name = policy.name
             let version = policy.version
             dbRecords.append(AcceptedTerms(policy: name, userId: userId, version: version))
         }
@@ -99,7 +109,8 @@ struct TermsAuthChecker: AuthChecker {
         // Terms auth is one of the few that may not always be required
         // Query the database to see whether the user has already accepted the current terms
         
-        for (name,policy) in self.policies {
+        for policy in self.config.policies {
+            let name = policy.name
             let version = policy.version
                         
             let alreadyAccepted = try await AcceptedTerms.query(on: request.db)

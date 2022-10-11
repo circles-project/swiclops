@@ -32,6 +32,8 @@ struct UiaController: RouteCollection {
         var bsspeke: BSSpekeAuthChecker.Config
         //var bsspekeOprfSecret: String
         var email: EmailConfig
+        var terms: TermsAuthChecker.Config
+        
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         
@@ -47,6 +49,7 @@ struct UiaController: RouteCollection {
             case bsspeke
             //case domain
             case email
+            case terms
             //case homeserver
             case registration
             case routes
@@ -76,7 +79,7 @@ struct UiaController: RouteCollection {
             DummyAuthChecker(),
             usernameChecker,
             PasswordAuthChecker(app: app),
-            TermsAuthChecker(app: app),
+            TermsAuthChecker(app: app, config: config.terms),
             TokenRegistrationAuthChecker(),
             EmailAuthChecker(app: app, config: config.email),
             FooAuthChecker(),
