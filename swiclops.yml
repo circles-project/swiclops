@@ -42,7 +42,13 @@ uia:
       flows:
         - stages: ["m.login.password"]
         - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify"]
-        
+    - path: "/account/deactivate"
+      method: "POST"
+    - path: "/devices/:deviceId"
+      method: "DELETE"
+    - path: "/keys/device_signing/upload"
+      method: "POST"
+
 admin:
   versions:
     - "v1"
