@@ -9,6 +9,7 @@ import Vapor
 
 struct MatrixUser: Authenticatable {
     var userId: String
+    var accessToken: String
 }
 
 struct MatrixUserAuthenticator: AsyncBearerAuthenticator {
@@ -39,7 +40,7 @@ struct MatrixUserAuthenticator: AsyncBearerAuthenticator {
             // Decode the response to extract the user id
             if let whoami = try? hsResponse.content.decode(WhoamiResponseBody.self) {
                 // Mark the request as belonging to the user
-                request.auth.login(MatrixUser(userId: whoami.userId))
+                request.auth.login(MatrixUser(userId: whoami.userId, accessToken: bearer.token))
                 // And add this bearer token / user id combo to our cache
                 await self.cache.set(bearer.token, whoami.userId)
             }

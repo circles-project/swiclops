@@ -24,6 +24,10 @@ struct UiaController: RouteCollection {
     var defaultFlows: [UiaFlow]
     var defaultProxyHandler: EndpointHandler
     
+    // For remembering when a given client last completed UIA with us
+    // This way, we can avoid bothering them again when they just authed for another request
+    var cache: ShardedActorDictionary<(String,String),Date>
+    
     struct Config: Codable {
         var backendAuth: BackendAuthConfig
         //var domain: String
@@ -63,6 +67,8 @@ struct UiaController: RouteCollection {
         
         self.domain = matrixConfig.domain
         self.homeserver = matrixConfig.homeserver
+        
+        self.cache = .init()
         
         // Set up our map from endpoints to UIA flows
         self.defaultFlows = config.defaultFlows
@@ -177,8 +183,8 @@ struct UiaController: RouteCollection {
             }
             let auth = uiaRequest.auth
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = await session.getData(for: "user_id") as? String else {
-                req.logger.error("UIA Controller: Couldn't find a user_id in the UIA session")
+            guard let userId = try await _getUserId(req: req) else {
+                req.logger.error("UIA Controller: Couldn't find a user id for the request")
                 throw Abort(.internalServerError)
             }
             let completed = await session.getCompleted()
@@ -345,7 +351,36 @@ struct UiaController: RouteCollection {
         
         // FIXME: Add an early check -- Has this user, with this access token, recently authenticated with us?
         //        It should be a very quick thing, like 30 seconds
-        //        But if so, don't bother them again so soon.  Just return true.
+        //        But if so, don't bother them again so soon.  Just return success.
+        // NOTE: Don't return too early -- If the flows contain an "enroll" stage, we NEED to run UIA regardless of whether we've recently authed or not
+        
+        // First check -- Is this a "normal" UIA request for a logged-in user, and not a login or registration etc?
+        if let user = req.auth.get(MatrixUser.self) {
+            // Second check -- Has the user recently completed UIA with us?
+            if let lastAuthedTimestamp = await self.cache.get((user.userId,user.accessToken)) {
+                let now = Date()
+                // Third check -- Was the previous UIA success in the very recent past?
+                if lastAuthedTimestamp.distance(to: now) < 30.0 {
+                    // Ok, now we have successfully verified that the client is cool with us
+                    // One last check -- Make sure they are not trying to enroll for something -- If so, we can't skip UIA, that would screw them up.
+                    var enrolling = false
+                    flowLoop: for flow in flows {
+                        for stage in flow.stages {
+                            if stage.contains(".enroll.") {
+                                enrolling = true
+                                break flowLoop
+                            }
+                        }
+                    }
+                    if !enrolling {
+                        // Yay, we met *all* of the conditions to skip UIA for this request
+                        // We're out of here!  Let the caller know that UIA is done.
+                        // However -- DON'T update the cache.  This DOES NOT reset the timeout for the next time we will require auth.
+                        return
+                    }
+                }
+            }
+        }
                 
         // Does this request already have a session associated with it?
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
@@ -455,6 +490,13 @@ struct UiaController: RouteCollection {
                     // Yay we're done with UIA
                     // Let's get out of here -- Let the main handler do whatever it needs to do with the "real" request
                     req.logger.debug("UIA controller: Yay we're done with UIA.  Completed flow = \(flow.stages)")
+                    
+                    // Save the current timestamp in our cache, in case the same client needs to hit another UIA endpoint in the next few seconds
+                    if let user = req.auth.get(MatrixUser.self) {
+                        let now = Date()
+                        try await self.cache.set((user.userId, user.accessToken), now)
+                    }
+                    
                     return
                 }
             }
