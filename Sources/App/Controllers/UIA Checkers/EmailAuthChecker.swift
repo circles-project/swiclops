@@ -206,7 +206,7 @@ struct EmailAuthChecker: AuthChecker {
         case EmailAuthChecker.LOGIN_SUBMIT_TOKEN:
             return try await _handleSubmitToken(req: req, authType: authType)
         default:
-            throw Abort(.badRequest)
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Auth type [\(authType)] is not supported by the email auth checker")
         }
     }
     
@@ -223,7 +223,7 @@ struct EmailAuthChecker: AuthChecker {
         
         // FIXME Save the user's email address in the database
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
-            throw Abort(.badRequest)
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
         }
         
         let auth = uiaRequest.auth
@@ -237,8 +237,9 @@ struct EmailAuthChecker: AuthChecker {
             try await emailRecord.save(on: req.db)
             req.logger.debug("m.enroll.email: User email saved to the database")
         } else {
-            req.logger.error("m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session")
-            throw Abort(.internalServerError)
+            let msg = "m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session"
+            req.logger.error("\(msg)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
         }
     }
     
