@@ -32,7 +32,35 @@ struct Account3PidHandler: EndpointHandler {
     }
     
     func handleGet(req: Request) async throws -> Response {
-        throw Abort(.notImplemented)
+        guard let user = req.auth.get(MatrixUser.self) else {
+            throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "This endpoint requires authentication")
+        }
+                
+        let records = try await UserEmailAddress.query(on: req.db)
+                                                .filter(\.$userId == user.userId)
+                                                .all()
+        
+        struct GetResponseBody: Content {
+            struct Threepid: Codable {
+                var addedAt: UInt
+                var address: String
+                var medium: String
+                var validatedAt: UInt
+            }
+            var threepids: [Threepid]
+            
+            init(_ emailRecords: [UserEmailAddress]) {
+                self.threepids = emailRecords.map { rec in
+                    Threepid(addedAt: UInt(rec.lastUpdated!.timeIntervalSince1970),
+                             address: rec.email,
+                             medium: "email",
+                             validatedAt: UInt(rec.lastUpdated!.timeIntervalSince1970))
+                }
+            }
+        }
+        
+        let responseBody = GetResponseBody(records)
+        return try await responseBody.encodeResponse(for: req)
     }
     
     func handleAdd(req: Request) async throws -> Response {
