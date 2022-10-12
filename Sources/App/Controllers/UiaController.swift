@@ -109,7 +109,7 @@ struct UiaController: RouteCollection {
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
             RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
-            AccountDeactivateHandler(app: self.app, proxy: self.defaultProxyHandler),
+            AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
         ]

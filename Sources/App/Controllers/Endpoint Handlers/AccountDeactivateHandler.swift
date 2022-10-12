@@ -9,20 +9,27 @@ import Vapor
 import Fluent
 
 struct AccountDeactivateHandler: EndpointHandler {
-    var app: Application
+    var checkers: [AuthChecker]
     var proxy: EndpointHandler
     var endpoints: [Endpoint] = [
         .init(.POST, "/account/deactivate")
     ]
     
-    init(app: Application, proxy: EndpointHandler) {
-        self.app = app
+    init(checkers: [AuthChecker], proxy: EndpointHandler) {
+        self.checkers = checkers
         self.proxy = proxy
     }
     
     func handle(req: Request) async throws -> Response {
+        guard let user = req.auth.get(MatrixUser.self) else {
+            throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "This endpoint requires authentication")
+        }
+        
         // 1. Deactivate the user in all of our authentication modules
-        throw Abort(.notImplemented)
+        for checker in checkers {
+            try await checker.onUnenrolled(req: req, userId: user.userId)
+        }
+        
         // 2. Proxy the request on to the real homeserver so the account can be deactivated there as well
         return try await proxy.handle(req: req)
     }
