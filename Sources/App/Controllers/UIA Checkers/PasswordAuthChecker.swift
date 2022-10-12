@@ -60,8 +60,8 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     
-    let AUTH_TYPE_LOGIN: String = "m.login.password"
-    let AUTH_TYPE_ENROLL: String = "m.enroll.password"
+    static let AUTH_TYPE_LOGIN: String = "m.login.password"
+    static let AUTH_TYPE_ENROLL: String = "m.enroll.password"
     
     var app: Application
     var policy: PasswordPolicy
@@ -72,14 +72,17 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func getSupportedAuthTypes() -> [String] {
-        [AUTH_TYPE_LOGIN, AUTH_TYPE_ENROLL]
+        [
+            PasswordAuthChecker.AUTH_TYPE_LOGIN,
+            PasswordAuthChecker.AUTH_TYPE_ENROLL
+        ]
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         switch authType  {
-        case AUTH_TYPE_LOGIN:
+        case PasswordAuthChecker.AUTH_TYPE_LOGIN:
             return nil
-        case AUTH_TYPE_ENROLL:
+        case PasswordAuthChecker.AUTH_TYPE_ENROLL:
             // FIXME: Why not just encode the Policy itself here???
             return ["minimum_length": AnyCodable(self.policy.minimumLength)]
         default:
@@ -90,10 +93,10 @@ struct PasswordAuthChecker: AuthChecker {
     
     func check(req: Request, authType: String) async throws -> Bool {
         switch authType {
-        case AUTH_TYPE_LOGIN:
+        case PasswordAuthChecker.AUTH_TYPE_LOGIN:
             let result = try await self._checkLogin(req: req)
             return result
-        case AUTH_TYPE_ENROLL:
+        case PasswordAuthChecker.AUTH_TYPE_ENROLL:
             let result = try await self._checkEnroll(req: req)
             return result
         default:
@@ -107,7 +110,7 @@ struct PasswordAuthChecker: AuthChecker {
             throw Abort(.badRequest)
         }
         let auth = loginRequest.auth
-        guard AUTH_TYPE_LOGIN == auth.type,
+        guard PasswordAuthChecker.AUTH_TYPE_LOGIN == auth.type,
               "m.id.user" == auth.identifier.type
         else {
             throw Abort(.badRequest)
@@ -145,12 +148,12 @@ struct PasswordAuthChecker: AuthChecker {
     }
     
     func _checkEnroll(req: Request) async throws -> Bool {
-        req.logger.debug("\(AUTH_TYPE_ENROLL): Checking...")
+        req.logger.debug("\(PasswordAuthChecker.AUTH_TYPE_ENROLL): Checking...")
         // Extract the proposed new password from the request
         guard let enrollRequest = try? req.content.decode(EnrollUiaRequest.self),
-              enrollRequest.auth.type == AUTH_TYPE_ENROLL
+              enrollRequest.auth.type == PasswordAuthChecker.AUTH_TYPE_ENROLL
         else {
-            req.logger.debug("\(AUTH_TYPE_ENROLL): Couldn't decode request")
+            req.logger.debug("\(PasswordAuthChecker.AUTH_TYPE_ENROLL): Couldn't decode request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Invalid request")
         }
         let auth = enrollRequest.auth
@@ -165,13 +168,13 @@ struct PasswordAuthChecker: AuthChecker {
         // Otherwise,
         //   Hash the password
         let digest = try await req.password.async.hash(password)
-        req.logger.debug("\(AUTH_TYPE_ENROLL): Password hash is [\(digest)]")
+        req.logger.debug("\(PasswordAuthChecker.AUTH_TYPE_ENROLL): Password hash is [\(digest)]")
         //   Connect to our persistent UIA session state
         let session = req.uia.connectSession(sessionId: auth.session)
         //   Actually save the digest into the session state
-        await session.setData(for: AUTH_TYPE_ENROLL+".digest", value: digest)
+        await session.setData(for: PasswordAuthChecker.AUTH_TYPE_ENROLL+".digest", value: digest)
 
-        req.logger.debug("\(AUTH_TYPE_ENROLL): Success!")
+        req.logger.debug("\(PasswordAuthChecker.AUTH_TYPE_ENROLL): Success!")
         return true
     }
     
@@ -181,8 +184,8 @@ struct PasswordAuthChecker: AuthChecker {
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
         req.logger.debug("PasswordAuthChecker.onEnrolled()")
-        guard authType == AUTH_TYPE_ENROLL else {
-            req.logger.debug("PasswordAuthChecker.onEnroll but authType is not \(AUTH_TYPE_ENROLL) -- doing nothing")
+        guard authType == PasswordAuthChecker.AUTH_TYPE_ENROLL else {
+            req.logger.debug("PasswordAuthChecker.onEnroll but authType is not \(PasswordAuthChecker.AUTH_TYPE_ENROLL) -- doing nothing")
             return
         }
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
@@ -193,8 +196,8 @@ struct PasswordAuthChecker: AuthChecker {
         let session = req.uia.connectSession(sessionId: auth.session)
         // Look for a hashed password in the session state
         // If we find one, then we just enrolled this user for our auth.  Otherwise, maybe we were in the flows to authenticate the user with an existing password, and they just enrolled with some other auth method.
-        if let digest = await session.getData(for: AUTH_TYPE_ENROLL+".digest") as? String  {
-            req.logger.debug("\(AUTH_TYPE_ENROLL): Finishing enrollment for user [\(userId)]")
+        if let digest = await session.getData(for: PasswordAuthChecker.AUTH_TYPE_ENROLL+".digest") as? String  {
+            req.logger.debug("\(PasswordAuthChecker.AUTH_TYPE_ENROLL): Finishing enrollment for user [\(userId)]")
             // Save the new hash in the database
             let record = PasswordHash(userId: userId, hashFunc: "bcrypt", digest: digest)
             try await record.create(on: req.db)
@@ -206,11 +209,11 @@ struct PasswordAuthChecker: AuthChecker {
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {
         switch authType {
-        case AUTH_TYPE_ENROLL:
+        case PasswordAuthChecker.AUTH_TYPE_ENROLL:
             // Anyone is eligible to enroll at any time
             return true
             
-        case AUTH_TYPE_LOGIN:
+        case PasswordAuthChecker.AUTH_TYPE_LOGIN:
             // Query the database for any records with the given userId
             // If we found any valid records, return true
             // Otherwise return false
