@@ -12,10 +12,10 @@ import AnyCodable
 
 struct EmailAuthChecker: AuthChecker {
     
-    let ENROLL_REQUEST_TOKEN = "m.enroll.email.request_token"
-    let ENROLL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
-    let LOGIN_REQUEST_TOKEN = "m.login.email.request_token"
-    let LOGIN_SUBMIT_TOKEN = "m.login.email.submit_token"
+    static let ENROLL_REQUEST_TOKEN = "m.enroll.email.request_token"
+    static let ENROLL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
+    static let LOGIN_REQUEST_TOKEN = "m.login.email.request_token"
+    static let LOGIN_SUBMIT_TOKEN = "m.login.email.submit_token"
     
     let FROM_ADDRESS = "circuli@circu.li"
     
@@ -50,12 +50,16 @@ struct EmailAuthChecker: AuthChecker {
     
     
     func getSupportedAuthTypes() -> [String] {
-        [ENROLL_REQUEST_TOKEN, ENROLL_SUBMIT_TOKEN,
-         LOGIN_REQUEST_TOKEN, LOGIN_SUBMIT_TOKEN]
+        [
+            EmailAuthChecker.ENROLL_REQUEST_TOKEN,
+            EmailAuthChecker.ENROLL_SUBMIT_TOKEN,
+            EmailAuthChecker.LOGIN_REQUEST_TOKEN,
+            EmailAuthChecker.LOGIN_SUBMIT_TOKEN
+        ]
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId maybeUserId: String?) async throws -> [String : AnyCodable]? {
-        if LOGIN_REQUEST_TOKEN == authType {
+        if EmailAuthChecker.LOGIN_REQUEST_TOKEN == authType {
             // The user is already registered, so we know what their valid email address(es) are
             // If they have more than one address, they need to tell us which one to use
             
@@ -89,7 +93,7 @@ struct EmailAuthChecker: AuthChecker {
         
         req.logger.debug("User requesting a token for email [\(userEmail)]")
 
-        if authType == LOGIN_REQUEST_TOKEN {
+        if authType == EmailAuthChecker.LOGIN_REQUEST_TOKEN {
             // Ok we're trying to log in some user.  Who is it?
             let session = req.uia.connectSession(sessionId: auth.session)
             guard let userId = await session.getData(for: "m.user.id") as? String else {
@@ -107,7 +111,7 @@ struct EmailAuthChecker: AuthChecker {
                 throw Abort(.badRequest)
             }
         } else {
-            guard authType == ENROLL_REQUEST_TOKEN else {
+            guard authType == EmailAuthChecker.ENROLL_REQUEST_TOKEN else {
                 throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Bad auth type [\(authType)]")
             }
         }
@@ -134,7 +138,7 @@ struct EmailAuthChecker: AuthChecker {
         // Save the code that we sent, so we can check it later
         let session = req.uia.connectSession(sessionId: auth.session)
         await session.setData(for: authType+".token", value: code)
-        if ENROLL_REQUEST_TOKEN == authType {
+        if EmailAuthChecker.ENROLL_REQUEST_TOKEN == authType {
             // We're enrolling the user here, so this is a new email address for us
             // Save the address in the UIA session for now
             // If the user succeeds in enrolling, we'll save it into the DB in onEnrolled()
@@ -159,8 +163,8 @@ struct EmailAuthChecker: AuthChecker {
         req.logger.debug("User submitted email token [\(code)] for session [\(auth.session)]")
         
         switch authType {
-        case ENROLL_SUBMIT_TOKEN:
-            guard let savedCode = await session.getData(for: ENROLL_REQUEST_TOKEN+".token") as? String,
+        case EmailAuthChecker.ENROLL_SUBMIT_TOKEN:
+            guard let savedCode = await session.getData(for: EmailAuthChecker.ENROLL_REQUEST_TOKEN+".token") as? String,
                   savedCode == code
             else {
                 // Hmmm either
@@ -168,10 +172,10 @@ struct EmailAuthChecker: AuthChecker {
                 // Or
                 //   2) We have a token, but it doesn't match what the user provided
                 // Do not pass Go, Do not collect $200
-                throw Abort(.forbidden)
+                throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "No matching token")
             }
-        case LOGIN_SUBMIT_TOKEN:
-            guard let savedCode = await session.getData(for: LOGIN_REQUEST_TOKEN+".token") as? String,
+        case EmailAuthChecker.LOGIN_SUBMIT_TOKEN:
+            guard let savedCode = await session.getData(for: EmailAuthChecker.LOGIN_REQUEST_TOKEN+".token") as? String,
                   savedCode == code
             else {
                 // Hmmm either
@@ -179,11 +183,11 @@ struct EmailAuthChecker: AuthChecker {
                 // Or
                 //   2) We have a token, but it doesn't match what the user provided
                 // Do not pass Go, Do not collect $200
-                throw Abort(.forbidden)
+                throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "No matching token")
             }
         default:
             // Should never be here
-            throw Abort(.badRequest)
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Invalid auth stage for submit_token")
         }
         
         // If we made it this far, then we found a matching token
@@ -193,13 +197,13 @@ struct EmailAuthChecker: AuthChecker {
     
     func check(req: Request, authType: String) async throws -> Bool {
         switch authType {
-        case ENROLL_REQUEST_TOKEN:
+        case EmailAuthChecker.ENROLL_REQUEST_TOKEN:
             return try await _handleRequestToken(req: req, authType: authType)
-        case ENROLL_SUBMIT_TOKEN:
+        case EmailAuthChecker.ENROLL_SUBMIT_TOKEN:
             return try await _handleSubmitToken(req: req, authType: authType)
-        case LOGIN_REQUEST_TOKEN:
+        case EmailAuthChecker.LOGIN_REQUEST_TOKEN:
             return try await _handleRequestToken(req: req, authType: authType)
-        case LOGIN_SUBMIT_TOKEN:
+        case EmailAuthChecker.LOGIN_SUBMIT_TOKEN:
             return try await _handleSubmitToken(req: req, authType: authType)
         default:
             throw Abort(.badRequest)
@@ -211,8 +215,8 @@ struct EmailAuthChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
-        guard authType == ENROLL_SUBMIT_TOKEN else {
-            req.logger.debug("m.enroll.email: onEnroll() but authType is not \(ENROLL_SUBMIT_TOKEN) -- doing nothing")
+        guard authType == EmailAuthChecker.ENROLL_SUBMIT_TOKEN else {
+            req.logger.debug("m.enroll.email: onEnroll() but authType is not \(EmailAuthChecker.ENROLL_SUBMIT_TOKEN) -- doing nothing")
             return
         }
         req.logger.debug("m.enroll.email: onEnroll()")
@@ -226,7 +230,7 @@ struct EmailAuthChecker: AuthChecker {
         let session = req.uia.connectSession(sessionId: auth.session)
         
         // Did the user enroll a new email with us?
-        if let userEmail = await session.getData(for: ENROLL_REQUEST_TOKEN+".email") as? String {
+        if let userEmail = await session.getData(for: EmailAuthChecker.ENROLL_REQUEST_TOKEN+".email") as? String {
             // If so, save their email to the database
             req.logger.debug("m.enroll.email: Finalizing enrollment for user [\(userId)] with email [\(userEmail)]")
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
@@ -241,11 +245,11 @@ struct EmailAuthChecker: AuthChecker {
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
         switch authType {
             
-        case ENROLL_REQUEST_TOKEN, ENROLL_SUBMIT_TOKEN:
+        case EmailAuthChecker.ENROLL_REQUEST_TOKEN, EmailAuthChecker.ENROLL_SUBMIT_TOKEN:
             // Everyone is always eligible to do an enrollment
             return true
             
-        case LOGIN_REQUEST_TOKEN, LOGIN_SUBMIT_TOKEN:
+        case EmailAuthChecker.LOGIN_REQUEST_TOKEN, EmailAuthChecker.LOGIN_SUBMIT_TOKEN:
             // Lookup whether the user is in the database
             if let _ = try await UserEmailAddress.query(on: app.db)
                                                  .filter(\.$userId == userId)
