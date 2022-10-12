@@ -175,7 +175,7 @@ struct UiaController: RouteCollection {
             }
             let auth = uiaRequest.auth
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = try await _getUserId(req: req) else {
+            guard let userId = try await getUserId(req: req) else {
                 let msg = "UIA Controller: Couldn't find a user id for this request"
                 req.logger.error("\(msg)")
                 throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
@@ -205,7 +205,7 @@ struct UiaController: RouteCollection {
             }
             let auth = uiaRequest.auth
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = try await _getUserId(req: req) else {
+            guard let userId = try await getUserId(req: req) else {
                 req.logger.error("UIA Controller: Couldn't find a user id for the request")
                 throw Abort(.internalServerError)
             }
@@ -272,8 +272,8 @@ struct UiaController: RouteCollection {
         return userId
     }
     
-    // MARK: _getUserId
-    private func _getUserId(req: Request) async throws -> String? {
+    // MARK: getUserId
+    public func getUserId(req: Request) async throws -> String? {
         // First look for a logged-in Matrix user with a Bearer token.
         // Our MatrixUserAuthenticator will have found the user_id for these users.
         if let authUser = req.auth.get(MatrixUser.self) {
@@ -375,7 +375,7 @@ struct UiaController: RouteCollection {
     // FIXME Find a better way to cache the list of actually required & useful flows inside the UIA session
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
                 
-        let userId = try await _getUserId(req: req)
+        let userId = try await getUserId(req: req)
         
         // FIXME: Add an early check -- Has this user, with this access token, recently authenticated with us?
         //        It should be a very quick thing, like 30 seconds
