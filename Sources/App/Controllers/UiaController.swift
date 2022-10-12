@@ -164,7 +164,8 @@ struct UiaController: RouteCollection {
         switch endpoint {
         case .init(.POST, "/register"),
              .init(.POST, "/account/auth"),
-             .init(.POST, "/account/password"):
+             .init(.POST, "/account/password"),
+             .init(.POST, "/account/3pid/add"):
             req.logger.debug("UIA Controller: Running post-enrollment callbacks")
 
             // Find all of the checkers that we just used
