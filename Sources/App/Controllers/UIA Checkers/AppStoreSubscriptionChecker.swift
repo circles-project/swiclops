@@ -130,7 +130,7 @@ struct AppStoreSubscriptionChecker: AuthChecker {
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        throw Abort(.notImplemented)
+        //throw Abort(.notImplemented)
     }
     
     

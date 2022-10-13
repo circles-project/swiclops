@@ -83,7 +83,7 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         let googleResponse = try await req.client.get(validationURL)
         
         // The response should contain transaction data
-        guard let transaction = try? googleResponse.content.decode(GooglePlay.TransactionData.self) else {
+        guard let transaction = try? googleResponse.content.decode(GooglePlay.SubscriptionPurchase.self) else {
             throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "Failed to validate subscription purchase")
         }
         
@@ -133,7 +133,8 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        throw Abort(.notImplemented)
+        // We need to make sure that this is safe to call for ALL of our checkers
+        //throw Abort(.notImplemented)
     }
     
     

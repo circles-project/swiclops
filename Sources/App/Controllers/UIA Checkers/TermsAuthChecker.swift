@@ -132,7 +132,8 @@ struct TermsAuthChecker: AuthChecker {
     
     func onUnenrolled(req: Request, userId: String) async throws {
         // Can't unenroll from terms of service
-        throw Abort(.badRequest)
+        // We need to make sure that this is safe to call for ALL of our checkers
+        //throw Abort(.badRequest)
     }
     
     

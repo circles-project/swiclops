@@ -273,8 +273,10 @@ struct EmailAuthChecker: AuthChecker {
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        // FIXME Remove the entry from the database
-        throw Abort(.notImplemented)
+        // Remove the entry from the database
+        try await UserEmailAddress.query(on: req.db)
+            .filter(\.$userId == userId)
+            .delete()
     }
     
     

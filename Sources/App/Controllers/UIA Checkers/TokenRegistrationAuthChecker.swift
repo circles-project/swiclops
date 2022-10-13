@@ -153,7 +153,8 @@ struct TokenRegistrationAuthChecker: AuthChecker {
     
     func onUnenrolled(req: Request, userId: String) async throws {
         // This doesn't even make sense
-        throw Abort(.notImplemented)
+        // We need to make sure that this is safe to call for ALL of our checkers
+        //throw Abort(.notImplemented)
     }
     
     

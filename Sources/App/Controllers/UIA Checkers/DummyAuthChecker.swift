@@ -57,7 +57,8 @@ struct DummyAuthChecker: AuthChecker {
     
     func onUnenrolled(req: Request, userId: String) async throws {
         // Can't unenroll from dummy auth, dummy.  :-)
-        throw Abort(.badRequest)
+        // NOTE: We need to make this safe to call for ALL of our checkers...
+        //throw Abort(.badRequest)
     }
     
     
