@@ -9,7 +9,9 @@ import Vapor
 
 enum GooglePlay {
     
-    struct TransactionData: Content {
+    // MARK: SubscriptionPurchase
+    // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions#resource:-subscriptionpurchase
+    struct SubscriptionPurchase: Content {
         // kind
         // string
         // This kind represents a subscriptionPurchase object in the androidpublisher service.
@@ -184,5 +186,121 @@ enum GooglePlay {
         // string
         // An obfuscated version of the id that is uniquely associated with the user's profile in your app. Only present if specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedprofileid when the purchase was made.
     }
+ 
+    // MARK: SubscriptionPurchaseV2
+    /*
+    // FIXME: This is incomplete...
+    // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#resource:-subscriptionpurchasev2
+    struct SubscriptionPurchaseV2: Content {
+        // kind
+        // string
+        // This kind represents a SubscriptionPurchaseV2 object in the androidpublisher service.
+        var kind: String
+
+        // regionCode
+        // string
+        // ISO 3166-1 alpha-2 billing country/region code of the user at the time the subscription was granted.
+        var regionCode: String
+
+        // latestOrderId
+        // string
+        // The order id of the latest order associated with the purchase of the subscription. For autoRenewing subscription, this is the order id of signup order if it is not renewed yet, or the last recurring order id (success, pending, or declined order). For prepaid subscription, this is the order id associated with the queried purchase token.
+        var latestOrderId: String
+
+        // lineItems[]
+        // object (SubscriptionPurchaseLineItem)
+        // Item-level info for a subscription purchase. The items in the same purchase should be either all with AutoRenewingPlan or all with PrepaidPlan.
+        var lineItems: [SubscriptionPurchaseLineItem]
+        struct SubscriptionPurchaseLineItem: Codable {
+            
+        }
+        
+        // startTime
+        // string (Timestamp format)
+        // Time at which the subscription was granted. Not set for pending subscriptions (subscription was created but awaiting payment during signup).
+        // A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        var startTime: Date
+
+        // subscriptionState
+        // enum (SubscriptionState)
+        // The current state of the subscription.
+        var subscriptionState: SubscriptionState
+        // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#subscriptionstate
+        enum SubscriptionState: String, Codable {
+            // Unspecified subscription state.
+            case unspecified = "SUBSCRIPTION_STATE_UNSPECIFIED"
+
+            // Subscription was created but awaiting payment during signup. In this state, all items are awaiting payment.
+            case pending = "SUBSCRIPTION_STATE_PENDING"
+            
+            // Subscription is active. - (1) If the subscription is an auto renewing plan, at least one item is autoRenewEnabled and not expired. - (2) If the subscription is a prepaid plan, at least one item is not expired.
+            case active = "SUBSCRIPTION_STATE_ACTIVE"
+
+            // Subscription is paused. The state is only available when the subscription is an auto renewing plan. In this state, all items are in paused state.
+            case paused = "SUBSCRIPTION_STATE_PAUSED"
+
+            // Subscription is in grace period. The state is only available when the subscription is an auto renewing plan. In this state, all items are in grace period.
+            case inGracePeriod = "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"
+
+            // Subscription is on hold (suspended). The state is only available when the subscription is an auto renewing plan. In this state, all items are on hold.
+            case onHold = "SUBSCRIPTION_STATE_ON_HOLD"
+            
+            // Subscription is canceled but not expired yet. The state is only available when the subscription is an auto renewing plan. All items have autoRenewEnabled set to false.
+            case canceled = "SUBSCRIPTION_STATE_CANCELED"
+            
+            // Subscription is expired. All items have expiryTime in the past.
+            case expired = "SUBSCRIPTION_STATE_EXPIRED"
+        }
+        
+        // linkedPurchaseToken
+        // string
+        // The purchase token of the old subscription if this subscription is one of the following: * Re-signup of a canceled but non-lapsed subscription * Upgrade/downgrade from a previous subscription. * Convert from prepaid to auto renewing subscription. * Convert from an auto renewing subscription to prepaid. * Topup a prepaid subscription.
+        var linkedPurchaseToken: String?
+
+        // pausedStateContext
+        // object (pausedStateContext)
+        // Additional context around paused subscriptions. Only present if the subscription currently has subscriptionState SUBSCRIPTION_STATE_PAUSED.
+        var pausedStateContext: PausedStateContext?
+        // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#pausedstatecontext
+        struct PausedStateContext: Codable {
+            // autoResumeTime
+            // string (Timestamp format)
+            // Time at which the subscription will be automatically resumed.
+            // A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+            var autoResumeTime: Date
+        }
+
+        // canceledStateContext
+        // object (CanceledStateContext)
+        // Additional context around canceled subscriptions. Only present if the subscription currently has subscriptionState SUBSCRIPTION_STATE_CANCELED.
+        //var canceledStateContext: CanceledStateContext?
+        // Ugh what a mess: https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#canceledstatecontext
+        //struct CanceledStateContext: Codable {
+        //
+        //}
+        
+        // testPurchase
+        // object (TestPurchase)
+        // Only present if this subscription purchase is a test purchase.
+
+        // acknowledgementState
+        //enum (AcknowledgementState)
+        // The acknowledgement state of the subscription.
+        var acknowledgementState: AcknowledgementState
+        enum AcknowledgementState: String, Codable {
+            case unspecified = "ACKNOWLEDGEMENT_STATE_UNSPECIFIED"    // Unspecified acknowledgement state.
+            case pending = "ACKNOWLEDGEMENT_STATE_PENDING"            // The subscription is not acknowledged yet.
+            case acknowledged = "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"  // The subscription is acknowledged.
+        }
+
+        // externalAccountIdentifiers
+        // object (ExternalAccountIdentifiers)
+        // User account identifier in the third-party service.
+
+        // subscribeWithGoogleInfo
+        // object (SubscribeWithGoogleInfo)
+        // User profile associated with purchases made with 'Subscribe with Google'.
+    }
+    */
     
 }
