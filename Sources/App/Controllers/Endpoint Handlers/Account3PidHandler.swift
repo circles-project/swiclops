@@ -95,8 +95,35 @@ struct Account3PidHandler: EndpointHandler {
         return try await emptyDict.encodeResponse(for: req)
     }
     
+    // https://spec.matrix.org/v1.3/client-server-api/#post_matrixclientv3account3piddelete
     func handleDelete(req: Request) async throws -> Response {
-        throw Abort(.notImplemented)
+        guard let user = req.auth.get(MatrixUser.self) else {
+            throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "This endpoint requires authentication")
+        }
+        
+        let userId = user.userId
+        
+        struct DeleteRequestBody: Content {
+            var address: String
+            var medium: String
+        }
+        guard let requestBody = try? req.content.decode(DeleteRequestBody.self) else {
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Could not parse request")
+        }
+        
+        guard requestBody.medium == "email" else {
+            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Only email 3pids are supported at this time")
+        }
+
+        try await UserEmailAddress.query(on: req.db)
+            .filter(\.$userId == userId)
+            .filter(\.$email == requestBody.address)
+            .delete()
+        
+        // This is weird, but it's the spec...  We don't do identity servers, so our response is always "no support" because we have nothing to unbind from.
+        var responseBody = ["id_server_unbind_result": "no-support"]
+        
+        return try await responseBody.encodeResponse(for: req)
     }
     
 }
