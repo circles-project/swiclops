@@ -47,8 +47,7 @@ uia:
     - path: "/account/password"
       method: "POST"
       flows:
-        - stages: ["m.login.password", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
-        - stages: ["m.login.bsspeke-ecc.oprf", "m.login.bsspeke-ecc.verify", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+        - stages: ["m.login.password", "m.enroll.password"]
     - path: "/account/3pid/add"
       method: "POST"
     - path: "/devices/:deviceId"
