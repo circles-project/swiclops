@@ -58,6 +58,15 @@ struct ProxyHandler: EndpointHandler {
             }
             let sessionId = responseBody.session
             let userId = try await whoAmI(for: req)
+            if true {
+                let flows = responseBody.flows
+                req.logger.debug("Homeserver offers the following flows for UIA: \(flows)")
+                if let params = responseBody.params {
+                    req.logger.debug("Homeserver provided the following UIA params: \(params)")
+                } else {
+                    req.logger.debug("Homeserver did not provide any UIA params")
+                }
+            }
             let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
             req.logger.debug("ProxyHandler: Computed token [\(token)] for user [\(userId)]")
             
