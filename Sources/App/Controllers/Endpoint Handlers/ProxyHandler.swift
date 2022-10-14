@@ -80,7 +80,7 @@ struct ProxyHandler: EndpointHandler {
         struct WhoamiResponseBody: Content {
             var userId: String
         }
-        let uri = URI(scheme: homeserver.scheme, host: homeserver.host, path: "/_matrix/client/v3/whoAmI")
+        let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/whoAmI")
         let response = try await req.client.get(uri)
         guard let body = try? response.content.decode(WhoamiResponseBody.self) else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't get user id")
