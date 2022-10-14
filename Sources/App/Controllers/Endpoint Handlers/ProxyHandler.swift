@@ -91,7 +91,9 @@ struct ProxyHandler: EndpointHandler {
                 case userId = "user_id"
             }
         }
+        req.logger.debug("ProxyHandler.whoAmI: Got homeserver response = \(response)")
         guard let body = try? response.content.decode(WhoamiResponseBody.self) else {
+            req.logger.error("Couldn't get user id")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't get user id")
         }
         req.logger.debug("ProxyHandler.whoAmI: I am [\(body.userId)]")
