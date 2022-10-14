@@ -48,6 +48,7 @@ struct ProxyHandler: EndpointHandler {
             // The homeserver wants to UIA -- This should be the common case, unless the user is already approved and cached on the homeserver
             // The first response contains a new UIA session with the real homeserver
             // Extract its session identifier and re-submit the request with our shared-secret auth
+            req.logger.debug("ProxyHandler: Starting UIA for [\(homeserverURI)]")
 
             guard let responseBody = try? proxyResponse1.content.decode(UiaIncomplete.Body.self) else {
                 let msg = "Homeserver returned invalid UIA response"
@@ -58,30 +59,38 @@ struct ProxyHandler: EndpointHandler {
             let sessionId = responseBody.session
             let userId = try await whoAmI(for: req)
             let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
+            req.logger.debug("ProxyHandler: Computed token [\(token)] for user [\(userId)]")
             
             // Now we can send the authenticated version of the request
             myRequestBody["auth"] = AnyCodable(SharedSecretAuth.AuthDict(token: token, session: sessionId))
             // And send the response back to the client
             let authedResponse = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
             req.logger.debug("ProxyHandler: Got authed response with status \(authedResponse.status)")
+            req.logger.debug("ProxyHandler: Authed response = \(authedResponse)")
             let authedResponseBody = Response.Body(buffer: authedResponse.body ?? .init())
             return Response(status: authedResponse.status, headers: authedResponse.headers, body: authedResponseBody)
         }
         else {
             // For all other response codes, we simply proxy the response back to the client
             // Maybe we're here because the request was malformed, or maybe the client had already authenticated in the recent past
-        
+            req.logger.debug("ProxyHandler: Homeserver did not require UIA for [\(homeserverURI)]")
             let responseBody = Response.Body(buffer: proxyResponse1.body ?? .init())
             return Response(status: proxyResponse1.status, headers: proxyResponse1.headers, body: responseBody)
         }
     }
     
     private func whoAmI(for req: Request) async throws -> String {
-        struct WhoamiResponseBody: Content {
-            var userId: String
-        }
+        req.logger.debug("ProxyHandler.whoAmI ???")
+
         let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/whoAmI")
         let response = try await req.client.get(uri)
+        struct WhoamiResponseBody: Content {
+            var userId: String
+            
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+            }
+        }
         guard let body = try? response.content.decode(WhoamiResponseBody.self) else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't get user id")
         }
