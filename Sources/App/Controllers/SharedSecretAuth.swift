@@ -22,5 +22,6 @@ struct SharedSecretAuth {
         var type = "com.devture.shared_secret_auth"
         var token: String
         var session: String
+        var identifier: [String:String]
     }
 }
