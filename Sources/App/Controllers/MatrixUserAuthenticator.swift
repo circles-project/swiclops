@@ -33,6 +33,7 @@ struct MatrixUserAuthenticator: AsyncBearerAuthenticator {
         
         let uri = URI(scheme: self.homeserver.scheme,
                       host: self.homeserver.host,
+                      port: self.homeserver.port,
                       path: "/_matrix/client/v3/account/whoami")
         let hsResponse = try await request.client.get(uri, headers: request.headers)
         if hsResponse.status == .ok {
