@@ -54,16 +54,19 @@ struct ProxyHandler: EndpointHandler {
                 var auth: GenericUiaAuthDict
             }
             guard let responseBody = try? proxyResponse1.content.decode(GenericUiaResponse.self) else {
-                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Homeserver returned invalid UIA response")
+                let msg = "Homeserver returned invalid UIA response"
+                req.logger.error("ProxyHandler: \(msg)")
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
             }
             let sessionId = responseBody.auth.session
-            let userId = try await getUserId(for: req)
+            let userId = try await whoAmI(for: req)
             let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
             
             // Now we can send the authenticated version of the request
             requestBody!["auth"] = AnyCodable(SharedSecretAuth.AuthDict(token: token, session: sessionId))
             // And send the response back to the client
             let authedResponse = try await req.client.post(homeserverURI, headers: req.headers, content: requestBody!)
+            req.logger.debug("ProxyHandler: Got authed response with status \(authedResponse.status)")
             let authedResponseBody = Response.Body(buffer: authedResponse.body ?? .init())
             return Response(status: authedResponse.status, headers: authedResponse.headers, body: authedResponseBody)
         }
@@ -76,7 +79,7 @@ struct ProxyHandler: EndpointHandler {
         }
     }
     
-    private func getUserId(for req: Request) async throws -> String {
+    private func whoAmI(for req: Request) async throws -> String {
         struct WhoamiResponseBody: Content {
             var userId: String
         }
@@ -85,6 +88,7 @@ struct ProxyHandler: EndpointHandler {
         guard let body = try? response.content.decode(WhoamiResponseBody.self) else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't get user id")
         }
+        req.logger.debug("ProxyHandler.whoAmI: I am [\(body.userId)]")
         return body.userId
     }
     
