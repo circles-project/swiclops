@@ -63,11 +63,19 @@ struct ProxyHandler: EndpointHandler {
             
             // Now we can send the authenticated version of the request
             myRequestBody["auth"] = AnyCodable(SharedSecretAuth.AuthDict(token: token, session: sessionId))
-            // And send the response back to the client
+            // Debugging: Did we craft a reasonable thing here as our request???
+            if true {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .prettyPrinted
+                let json = try encoder.encode(myRequestBody)
+                let string = String(data: json, encoding: .utf8)!
+                req.logger.debug("ProxyHandler: About to send request with body = \(string)")
+            }
             let authedResponse = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
             req.logger.debug("ProxyHandler: Got authed response with status \(authedResponse.status)")
             req.logger.debug("ProxyHandler: Authed response = \(authedResponse)")
             let authedResponseBody = Response.Body(buffer: authedResponse.body ?? .init())
+            // And send the response back to the client
             return Response(status: authedResponse.status, headers: authedResponse.headers, body: authedResponseBody)
         }
         else {
@@ -83,6 +91,7 @@ struct ProxyHandler: EndpointHandler {
         req.logger.debug("ProxyHandler.whoAmI ???")
 
         let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/account/whoami")
+        //req.logger.debug("ProxyHandler.whoAmI Sending request to \(uri) with headers = \(req.headers)")
         let response = try await req.client.get(uri, headers: req.headers)
         struct WhoamiResponseBody: Content {
             var userId: String
