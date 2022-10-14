@@ -72,6 +72,13 @@ struct ProxyHandler: EndpointHandler {
             
             // Now we can send the authenticated version of the request
             myRequestBody["auth"] = AnyCodable(SharedSecretAuth.AuthDict(token: token, session: sessionId))
+            // OK this is *weird* but Synapse appears to be demanding that we provide an `identifier` structure for UIA, like we do for `/login`
+            myRequestBody["identifier"] = AnyCodable(
+                [
+                    "type": "m.id.user",
+                    "user": userId
+                ]
+            )
             // Debugging: Did we craft a reasonable thing here as our request???
             if true {
                 let encoder = JSONEncoder()
