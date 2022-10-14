@@ -48,20 +48,14 @@ struct ProxyHandler: EndpointHandler {
             // The homeserver wants to UIA -- This should be the common case, unless the user is already approved and cached on the homeserver
             // The first response contains a new UIA session with the real homeserver
             // Extract its session identifier and re-submit the request with our shared-secret auth
-            struct GenericUiaResponse: Content {
-                struct GenericUiaAuthDict: UiaAuthDict {
-                    var type: String
-                    var session: String
-                }
-                var auth: GenericUiaAuthDict
-            }
-            guard let responseBody = try? proxyResponse1.content.decode(GenericUiaResponse.self) else {
+
+            guard let responseBody = try? proxyResponse1.content.decode(UiaIncomplete.Body.self) else {
                 let msg = "Homeserver returned invalid UIA response"
                 req.logger.error("ProxyHandler: \(msg)")
                 req.logger.error("              Got response: \(proxyResponse1)")
                 throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
             }
-            let sessionId = responseBody.auth.session
+            let sessionId = responseBody.session
             let userId = try await whoAmI(for: req)
             let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
             
