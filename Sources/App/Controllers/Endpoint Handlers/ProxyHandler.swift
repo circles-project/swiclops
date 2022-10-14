@@ -37,6 +37,8 @@ struct ProxyHandler: EndpointHandler {
         
         // Now pass the rest of the request body on to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, path: req.url.path)
+        req.logger.debug("ProxyHandler: Forwarding request to [\(homeserverURI)]")
+
         let proxyResponse1 = try await req.client.post(homeserverURI, headers: req.headers, content: requestBody!)
         
         

@@ -42,6 +42,7 @@ struct AccountPasswordHandler: EndpointHandler {
         // And at this point we're good, so return success.
         // (It's up to the UiaController to run the post-enrollment callbacks for us once this completes)
         let emptyDict = [String:String]()
-        return try await emptyDict.encodeResponse(for: req)    }
+        return try await emptyDict.encodeResponse(for: req)
+    }
     
 }

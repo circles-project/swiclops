@@ -27,6 +27,7 @@ struct AccountDeactivateHandler: EndpointHandler {
         
         // 1. Deactivate the user in all of our authentication modules
         for checker in checkers {
+            req.logger.debug("Unenrolling from auth checker for \(checker.getSupportedAuthTypes())")
             try await checker.onUnenrolled(req: req, userId: user.userId)
         }
         
