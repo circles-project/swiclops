@@ -83,7 +83,7 @@ struct ProxyHandler: EndpointHandler {
         req.logger.debug("ProxyHandler.whoAmI ???")
 
         let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/whoAmI")
-        let response = try await req.client.get(uri)
+        let response = try await req.client.get(uri, headers: req.headers)
         struct WhoamiResponseBody: Content {
             var userId: String
             
