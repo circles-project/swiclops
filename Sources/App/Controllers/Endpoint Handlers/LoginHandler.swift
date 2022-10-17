@@ -72,6 +72,11 @@ struct LoginHandler: EndpointHandler {
     }
     
     func handlePost(req: Request) async throws -> Response {
+        
+        if let user = req.auth.get(MatrixUser.self) {
+            throw MatrixError(.badRequest, errcode: .invalidParam, error: "Can't /login if you already have an access_token")
+        }
+        
         guard let clientRequest = try? req.content.decode(LoginRequestBody.self)
         else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /login request")
