@@ -14,9 +14,22 @@ struct LoginRequestBody: Content {
         let user: String
     }
     var identifier: Identifier
-    var type: String?
+    var type: String
     var password: String?
     var token: String?
+    var deviceId: String?
+    var initialDeviceDisplayName: String?
+    var refreshToken: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case identifier
+        case type
+        case password
+        case token
+        case deviceId = "device_id"
+        case initialDeviceDisplayName = "initial_device_display_name"
+        case refreshToken = "refresh_token"
+    }
 }
 
 struct LoginHandler: EndpointHandler {
