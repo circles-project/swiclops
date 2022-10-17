@@ -405,6 +405,7 @@ struct UiaController: RouteCollection {
                         // Yay, we met *all* of the conditions to skip UIA for this request
                         // We're out of here!  Let the caller know that UIA is done.
                         // However -- DON'T update the cache.  This DOES NOT reset the timeout for the next time we will require auth.
+                        req.logger.info("Skipping UIA for user [\(user.userId)] with access token [\(user.accessToken)] requesting \(req.url.path)")
                         return
                     }
                 }
