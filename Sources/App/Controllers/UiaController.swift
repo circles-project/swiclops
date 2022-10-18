@@ -112,6 +112,7 @@ struct UiaController: RouteCollection {
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
+            AccountAuthHandler(),
         ]
         self.handlers = [:]
         for module in endpointHandlerModules {
