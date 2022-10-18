@@ -14,7 +14,7 @@ struct LoginRequestBody: Content {
         let user: String
     }
     var identifier: Identifier
-    var type: String
+    var type: String?
     var password: String?
     var token: String?
     var deviceId: String?
