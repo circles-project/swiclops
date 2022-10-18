@@ -279,14 +279,17 @@ struct UiaController: RouteCollection {
         // First look for a logged-in Matrix user with a Bearer token.
         // Our MatrixUserAuthenticator will have found the user_id for these users.
         if let authUser = req.auth.get(MatrixUser.self) {
+            req.logger.debug("getUserId: Found user [\(authUser.userId)] in the Bearer token")
             return authUser.userId
         }
         
         // Maybe the user is trying to log in, and they sent the user id in the request
         if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
             if loginRequest.identifier.type == "m.id.user" {
+                req.logger.debug("getUserId: Found user [\(loginRequest.identifier.user)] in the /login request")
                 return loginRequest.identifier.user
             } else {
+                req.logger.error("getUserId: Login request has no m.id.user")
                 return nil
             }
             // FIXME: Add support for looking up user id from a 3pid like an email address
@@ -310,6 +313,7 @@ struct UiaController: RouteCollection {
 
         // Every attempt to find a user id has failed
         // Guess we don't know who the heck this is after all...
+        req.logger.debug("getUserId: No user id in request")
         return nil
     }
     
@@ -376,9 +380,7 @@ struct UiaController: RouteCollection {
 
     // FIXME Find a better way to cache the list of actually required & useful flows inside the UIA session
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
-                
-        let userId = try await getUserId(req: req)
-        
+                        
         // FIXME: Add an early check -- Has this user, with this access token, recently authenticated with us?
         //        It should be a very quick thing, like 30 seconds
         //        But if so, don't bother them again so soon.  Just return success.
@@ -412,6 +414,9 @@ struct UiaController: RouteCollection {
                 }
             }
         }
+        
+        // Try to find the user id for this request, which may be encoded in different places depending on the type of request
+        let userId = try await getUserId(req: req)
                 
         // Does this request already have a session associated with it?
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
@@ -461,7 +466,10 @@ struct UiaController: RouteCollection {
         
         // We have the user_id that we extracted above.  Store it in the request's UIA session where all of the checkers can find it.
         if let u = userId {
+            req.logger.debug("UIA Controller: Request is from user_id [\(u)]")
             await session.setData(for: "user_id", value: u)
+        } else {
+            req.logger.debug("UIA Controller: No user id")
         }
         
         guard let requiredFlows = await session.getData(for: "required_flows") as? [UiaFlow]
