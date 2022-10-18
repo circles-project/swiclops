@@ -466,6 +466,7 @@ struct UiaController: RouteCollection {
         
         guard let requiredFlows = await session.getData(for: "required_flows") as? [UiaFlow]
         else {
+            req.logger.error("UIA Controller: Couldn't find required flows for UIA session")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find required flows for UIA session")
         }
 
@@ -479,11 +480,13 @@ struct UiaController: RouteCollection {
             // FIXME Create and return a proper Matrix response
             //throw Abort(.forbidden)
             //return MatrixErrorResponse(status: .forbidden, errorcode: .forbidden, error: "Invalid auth type") //.encodeResponse(for: req)
+            req.logger.error("UIA Controller: Invalid auth type \(authType)")
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid auth type \(authType)")
         }
         
         let alreadyCompleted = await session.getCompleted()
         if alreadyCompleted.contains(authType) {
+            req.logger.error("UIA Controller: Authentication stage \(authType) has already been completed")
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Authentication stage \(authType) has already been completed")
         }
         
@@ -492,7 +495,7 @@ struct UiaController: RouteCollection {
             // Uh oh, we screwed up and we don't have a checker for an auth type that we advertised.  Doh!
             // FIXME Create an actual Matrix response and return it
             //throw Abort(.internalServerError)
-            req.logger.error("No checker found for requested auth type: \(authType)")
+            req.logger.error("UIA Controller: No checker found for requested auth type: \(authType)")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No checker found for auth type \(authType)")
         }
         

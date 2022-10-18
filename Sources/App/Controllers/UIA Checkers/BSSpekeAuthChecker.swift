@@ -240,6 +240,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         let blind = try _b64decode(auth.blind)
         
         guard let userId = await session.getData(for: "user_id") as? String else {
+            req.logger.debug("BS-SPEKE OPRF: Could not determine user id")
             throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
         }
         
@@ -272,6 +273,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         guard let bss = await session.getData(for: LOGIN_VERIFY+".state") as? BlindSaltSpeke.ServerSession,
               let Vstring = await session.getData(for: LOGIN_VERIFY+".V") as? String
         else {
+            req.logger.debug("BS-SPEKE: Must complete OPRF stage before attempting BS-SPEKE verification")
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Must complete OPRF stage before attempting BS-SPEKE verification")
         }
                 
