@@ -121,7 +121,7 @@ struct Account3PidHandler: EndpointHandler {
             .delete()
         
         // This is weird, but it's the spec...  We don't do identity servers, so our response is always "no support" because we have nothing to unbind from.
-        var responseBody = ["id_server_unbind_result": "no-support"]
+        let responseBody = ["id_server_unbind_result": "no-support"]
         
         return try await responseBody.encodeResponse(for: req)
     }
