@@ -87,7 +87,10 @@ struct LoginHandler: EndpointHandler {
         // And then we proxy it to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
         let token = try SharedSecretAuth.token(secret: self.authConfig.sharedSecret, userId: clientRequest.identifier.user)
-        let proxyRequestBody = LoginRequestBody(identifier: clientRequest.identifier, type: self.authConfig.type.rawValue, token: token)
+        var proxyRequestBody = clientRequest
+        proxyRequestBody.password = nil
+        proxyRequestBody.type = self.authConfig.type.rawValue
+        proxyRequestBody.token = token
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
         return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
