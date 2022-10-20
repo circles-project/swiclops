@@ -51,6 +51,12 @@ uia:
     - path: "/account/3pid/add"
       method: "POST"
     - path: "/devices/:deviceId"
+      method: "PUT"
+      flows: []
+    - path: "/devices/:deviceId"
+      method: "GET"
+      flows: []
+    - path: "/devices/:deviceId"
       method: "DELETE"
     - path: "/delete_devices"
       method: "POST"
