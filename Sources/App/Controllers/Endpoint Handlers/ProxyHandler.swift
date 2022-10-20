@@ -17,6 +17,7 @@ struct ProxyHandler: EndpointHandler {
     var app: Application
     var homeserver: URL
     var backendAuthConfig: BackendAuthConfig
+    var allocator: ByteBufferAllocator
     
     typealias GenericContent = [String: AnyCodable]
     
@@ -26,18 +27,40 @@ struct ProxyHandler: EndpointHandler {
         self.backendAuthConfig = authConfig
         
         self.endpoints = []
+        
+        self.allocator = .init()
     }
     
     func forward(req: Request, to uri: URI, with content: GenericContent? = nil) async throws -> ClientResponse {
+        req.logger.debug("ProxyHandler: Forwarding \(req.method) request to [\(uri)]")
+        // Debugging: Did we craft a reasonable thing here as our request???
+        if let body = content {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let json = try encoder.encode(body)
+            let string = String(data: json, encoding: .utf8)!
+            req.logger.debug("ProxyHandler: POST request body = \(string)")
+        }
+
         switch req.method {
+            
         case .POST:
             return try await req.client.post(uri, headers: req.headers, content: content!)
+
         case .GET:
             return try await req.client.get(uri, headers: req.headers)
+
         case .PUT:
             return try await req.client.put(uri, headers: req.headers, content: content!)
+
         case .DELETE:
-            return try await req.client.delete(uri, headers: req.headers)
+            // WTF Vapor, DELETE is allowed to have a body https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE
+            return try await req.client.delete(uri, headers: req.headers) { clientReq in
+                let encoder = JSONEncoder()
+                //try clientReq.encode(content, using: encoder)
+                clientReq.body = try encoder.encodeAsByteBuffer(content, allocator: self.allocator)
+            }
+
         default:
             throw MatrixError(status: .internalServerError, errcode: .unrecognized, error: "Bad HTTP method")
         }
@@ -55,9 +78,7 @@ struct ProxyHandler: EndpointHandler {
         
         // Now pass the rest of the request body on to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
-        req.logger.debug("ProxyHandler: Forwarding request to [\(homeserverURI)]")
 
-       
         //let proxyResponse1 = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
         let proxyResponse1 = try await forward(req: req, to: homeserverURI, with: myRequestBody)
         
@@ -97,14 +118,7 @@ struct ProxyHandler: EndpointHandler {
                                                                          ]
                                                                         ))
 
-            // Debugging: Did we craft a reasonable thing here as our request???
-            if true {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = .prettyPrinted
-                let json = try encoder.encode(myRequestBody)
-                let string = String(data: json, encoding: .utf8)!
-                req.logger.debug("ProxyHandler: About to send request with body = \(string)")
-            }
+
             //let authedResponse = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
             let authedResponse = try await forward(req: req, to: homeserverURI, with: myRequestBody)
             req.logger.debug("ProxyHandler: Got authed response with status \(authedResponse.status)")
