@@ -364,7 +364,7 @@ struct BSSpekeAuthChecker: AuthChecker {
             req.logger.debug("BS-SPEKE: The new user didn't enroll with us.  Nothing to do.")
             return
         }
-        let alreadyEnrolled = try await isUserEnrolled(userId: userId, authType: authType)
+        let alreadyEnrolled = try await isUserEnrolled(userId: userId, authType: LOGIN_VERIFY)
         if alreadyEnrolled {
             // The user is re-enrolling with a new password
             req.logger.debug("BS-SPEKE: Finalizing re-enrollment for user [\(userId)]")
