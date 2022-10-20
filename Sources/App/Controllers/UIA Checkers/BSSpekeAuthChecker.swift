@@ -364,9 +364,24 @@ struct BSSpekeAuthChecker: AuthChecker {
             req.logger.debug("BS-SPEKE: The new user didn't enroll with us.  Nothing to do.")
             return
         }
-        req.logger.debug("BS-SPEKE: Finalizing enrollment for user [\(userId)]")
-        let dbRecord = BSSpekeUser(id: userId, curve: curve, P: P, V: V, phf: phfParams)
-        try await dbRecord.create(on: req.db)
+        let alreadyEnrolled = try await isUserEnrolled(userId: userId, authType: authType)
+        if alreadyEnrolled {
+            // The user is re-enrolling with a new password
+            req.logger.debug("BS-SPEKE: Finalizing re-enrollment for user [\(userId)]")
+            try await BSSpekeUser.query(on: req.db)
+                                 .set(\.$curve, to: curve)
+                                 .set(\.$P, to: P)
+                                 .set(\.$V, to: V)
+                                 .set(\.$phf, to: phfParams)
+                                 .filter(\.$id == userId)
+                                 .update()
+        }
+        else {
+            // This is a new enrollment
+            req.logger.debug("BS-SPEKE: Finalizing new enrollment for user [\(userId)]")
+            let dbRecord = BSSpekeUser(id: userId, curve: curve, P: P, V: V, phf: phfParams)
+            try await dbRecord.create(on: req.db)
+        }
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
