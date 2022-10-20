@@ -28,16 +28,16 @@ struct ProxyHandler: EndpointHandler {
         self.endpoints = []
     }
     
-    func forward(req: Request, uri: URI, headers: HTTPHeaders, content: GenericContent? = nil) async throws -> ClientResponse {
+    func forward(req: Request, to uri: URI, with content: GenericContent? = nil) async throws -> ClientResponse {
         switch req.method {
         case .POST:
-            return try await req.client.post(uri, headers: headers, content: content!)
+            return try await req.client.post(uri, headers: req.headers, content: content!)
         case .GET:
-            return try await req.client.get(uri, headers: headers)
+            return try await req.client.get(uri, headers: req.headers)
         case .PUT:
-            return try await req.client.put(uri, headers: headers, content: content!)
+            return try await req.client.put(uri, headers: req.headers, content: content!)
         case .DELETE:
-            return try await req.client.delete(uri, headers: headers)
+            return try await req.client.delete(uri, headers: req.headers)
         default:
             throw MatrixError(status: .internalServerError, errcode: .unrecognized, error: "Bad HTTP method")
         }
@@ -59,7 +59,7 @@ struct ProxyHandler: EndpointHandler {
 
        
         //let proxyResponse1 = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
-        let proxyResponse1 = try await forward(req: req, uri: homeserverURI, headers: req.headers)
+        let proxyResponse1 = try await forward(req: req, to: homeserverURI, with: myRequestBody)
         
         
         if proxyResponse1.status == .unauthorized {
@@ -106,7 +106,7 @@ struct ProxyHandler: EndpointHandler {
                 req.logger.debug("ProxyHandler: About to send request with body = \(string)")
             }
             //let authedResponse = try await req.client.post(homeserverURI, headers: req.headers, content: myRequestBody)
-            let authedResponse = try await forward(req: req, uri: homeserverURI, headers: req.headers)
+            let authedResponse = try await forward(req: req, to: homeserverURI, with: myRequestBody)
             req.logger.debug("ProxyHandler: Got authed response with status \(authedResponse.status)")
             req.logger.debug("ProxyHandler: Authed response = \(authedResponse)")
             let authedResponseBody = Response.Body(buffer: authedResponse.body ?? .init())
