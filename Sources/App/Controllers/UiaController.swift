@@ -492,11 +492,16 @@ struct UiaController: RouteCollection {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid auth type \(authType)")
         }
         
+        /*
+        // For multi-stage authentication methods like BS-SPEKE, we *must* allow the user to complete the first stage multiple times
+        // When the 2nd stage fails, e.g. the user mis-typed their password, the user has to go back and do both stages.
+        // If we have already marked the first stage as unavailable, they can't do that.
         let alreadyCompleted = await session.getCompleted()
         if alreadyCompleted.contains(authType) {
             req.logger.error("UIA Controller: Authentication stage \(authType) has already been completed")
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Authentication stage \(authType) has already been completed")
         }
+        */
         
         guard let checker = self.checkers[authType]
         else {
