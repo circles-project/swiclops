@@ -174,6 +174,13 @@ struct EmailAuthChecker: AuthChecker {
                 // Do not pass Go, Do not collect $200
                 throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "No matching token")
             }
+            // Now that the user has validated their ownership of this email address,
+            // we need to save it in the UIA session for use in onEnrolled()
+            guard let email = await session.getData(for: EmailAuthChecker.ENROLL_REQUEST_TOKEN+".email") as? String
+            else {
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not find email address for the given token")
+            }
+            await session.setData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email", value: email)
         case EmailAuthChecker.LOGIN_SUBMIT_TOKEN:
             guard let savedCode = await session.getData(for: EmailAuthChecker.LOGIN_REQUEST_TOKEN+".token") as? String,
                   savedCode == code
@@ -230,7 +237,7 @@ struct EmailAuthChecker: AuthChecker {
         let session = req.uia.connectSession(sessionId: auth.session)
         
         // Did the user enroll a new email with us?
-        if let userEmail = await session.getData(for: EmailAuthChecker.ENROLL_REQUEST_TOKEN+".email") as? String {
+        if let userEmail = await session.getData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email") as? String {
             // If so, save their email to the database
             req.logger.debug("m.enroll.email: Finalizing enrollment for user [\(userId)] with email [\(userEmail)]")
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
