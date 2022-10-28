@@ -16,8 +16,12 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
     
     var productIds: [String]
     
-    init(productIds: [String]) {
-        self.productIds = productIds
+    struct Config: Codable {
+        var productIds: [String]
+    }
+    
+    init(config: Config) {
+        self.productIds = config.productIds
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -27,7 +31,9 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
-        throw Abort(.notImplemented)
+        return [
+            "product_ids": AnyCodable(self.productIds)
+        ]
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
