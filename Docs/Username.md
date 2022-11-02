@@ -32,6 +32,10 @@ problems at once.
 
 * A legitimate user gets immediate feedback when they request a username that they can't have
 
+* The server gets an early opportunity to reject misleading, obscene, or otherwise
+  bad usernames.  We suggest homeserver operators use the [List of Dirty, Naughty, Obscene, and Otherwise Bad Words](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words),
+  which can be loaded using the [load-badwords](../Sources/App/Commands/LoadBadWordsCommand.swift) command.
+
 * Putting the username UIA stage after a gating stage like `m.login.registration_token`
   prevents random people on the internet from learning what account names are
   or are not registered on our server.

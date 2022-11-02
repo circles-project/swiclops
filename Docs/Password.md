@@ -1,5 +1,12 @@
 # Swiclops Password auth module
 
+The password module offers two stages: one for enrollment and one for authentication.
+
+The enrollment module provides the server's minimum password strength requirements in
+its UIA parameters.  Currently this is only a minimum length, but it could be extended
+in the future to require some minimum number of numerals or special characters, or even
+to require a certain password strength according to an algorithm like [zxcvbn](https://github.com/dropbox/zxcvbn).
+
 ## Enrollment / Registration
 
 ### m.enroll.password
