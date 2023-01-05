@@ -37,7 +37,7 @@ struct UiaController: RouteCollection {
         var bsspeke: BSSpekeAuthChecker.Config
         //var bsspekeOprfSecret: String
         var email: EmailConfig
-        var terms: TermsAuthChecker.Config
+        var terms: TermsAuthChecker.Config?
         
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
@@ -82,17 +82,21 @@ struct UiaController: RouteCollection {
         
         // Set up our UIA checker modules
         let usernameChecker = try UsernameEnrollAuthChecker(app: app)
-        let authCheckerModules: [AuthChecker] = [
+        var authCheckerModules: [AuthChecker] = [
             DummyAuthChecker(),
             usernameChecker,
             PasswordAuthChecker(app: app),
-            TermsAuthChecker(app: app, config: config.terms),
             TokenRegistrationAuthChecker(),
             EmailAuthChecker(app: app, config: config.email),
             FooAuthChecker(),
             BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
 
         ]
+        
+        if let terms = config.terms {
+            authCheckerModules.append(TermsAuthChecker(app: app, config: terms))
+        }
+        
         self.checkers = [:]
         for module in authCheckerModules {
             for authType in module.getSupportedAuthTypes() {
