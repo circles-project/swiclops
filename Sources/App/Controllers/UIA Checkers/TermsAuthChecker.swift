@@ -44,7 +44,7 @@ struct TermsAuthChecker: AuthChecker {
     var config: Config
     
     struct Config: Codable {
-        var policies: [Policy]
+        var policies: [Policy]?
     }
     
     init(app: Application, config: Config) {
@@ -80,10 +80,12 @@ struct TermsAuthChecker: AuthChecker {
     
     func _updateDatabase(for req: Request, userId: String) async throws {
         var dbRecords: [AcceptedTerms] = []
-        for policy in self.config.policies {
-            let name = policy.name
-            let version = policy.version
-            dbRecords.append(AcceptedTerms(policy: name, userId: userId, version: version))
+        if let policies = self.config.policies {
+            for policy in policies {
+                let name = policy.name
+                let version = policy.version
+                dbRecords.append(AcceptedTerms(policy: name, userId: userId, version: version))
+            }
         }
         try await dbRecords.create(on: req.db)
     }
@@ -109,20 +111,22 @@ struct TermsAuthChecker: AuthChecker {
         // Terms auth is one of the few that may not always be required
         // Query the database to see whether the user has already accepted the current terms
         
-        for policy in self.config.policies {
-            let name = policy.name
-            let version = policy.version
-                        
-            let alreadyAccepted = try await AcceptedTerms.query(on: request.db)
-                                   .filter(\.$userId == userId)
-                                   .filter(\.$policy == name)
-                                   .filter(\.$version >= version)
-                                   .first()
+        if let policies = self.config.policies {
+            for policy in policies {
+                let name = policy.name
+                let version = policy.version
+                            
+                let alreadyAccepted = try await AcceptedTerms.query(on: request.db)
+                                       .filter(\.$userId == userId)
+                                       .filter(\.$policy == name)
+                                       .filter(\.$version >= version)
+                                       .first()
 
-            
-            guard alreadyAccepted != nil else {
-                // User is required to accept current terms
-                return true
+                
+                guard alreadyAccepted != nil else {
+                    // User is required to accept current terms
+                    return true
+                }
             }
         }
 
