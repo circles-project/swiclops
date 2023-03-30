@@ -26,6 +26,13 @@ struct TermsAuthChecker: AuthChecker {
         struct LocalizedPolicy: Codable {
             var name: String
             var url: URL
+            var markdownUrl: URL
+            
+            enum CodingKeys: String, CodingKey {
+                case name
+                case url
+                case markdownUrl = "markdown_url"
+            }
         }
         
         var name: String
