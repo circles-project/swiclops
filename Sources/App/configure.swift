@@ -19,6 +19,17 @@ public func configure(_ app: Application) throws {
     app.middleware = .init()
     app.middleware.use(MatrixErrorMiddleware())
     
+    // We need CORS in order to support web clients
+    // https://docs.vapor.codes/advanced/middleware/#cors-middleware
+    let corsConfiguration = CORSMiddleware.Configuration(
+        allowedOrigin: .all,
+        allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
+        allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin]
+    )
+    let cors = CORSMiddleware(configuration: corsConfiguration)
+    // cors middleware should come before default error middleware using `at: .beginning`
+    app.middleware.use(cors, at: .beginning)
+    
     //app.views.use(.leaf)
 
     // Use Vapor's built-in passwords with Bcrypt
