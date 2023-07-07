@@ -110,13 +110,14 @@ struct UiaController: RouteCollection {
                                         homeserver: matrixConfig.homeserver,
                                         flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
                                         authConfig: config.backendAuth)
+        let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
             RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
-            AccountAuthHandler(),
+            accountAuthHandler,
         ]
         self.handlers = [:]
         for module in endpointHandlerModules {
@@ -396,7 +397,8 @@ struct UiaController: RouteCollection {
             if let lastAuthedTimestamp = await self.cache.get(user) {
                 let now = Date()
                 // Third check -- Was the previous UIA success in the very recent past?
-                if lastAuthedTimestamp.distance(to: now) < 30.0 {
+                let delay = lastAuthedTimestamp.distance(to: now)
+                if delay < 30.0 {
                     // Ok, now we have successfully verified that the client is cool with us
                     // One last check -- Make sure they are not trying to enroll for something -- If so, we can't skip UIA, that would screw them up.
                     var enrolling = false
@@ -415,6 +417,8 @@ struct UiaController: RouteCollection {
                         req.logger.info("Skipping UIA for user [\(user.userId)] with access token [\(user.accessToken)] requesting \(req.url.path)")
                         return
                     }
+                } else {
+                    req.logger.debug("Can't automatically allow this request; \(delay) is too long since last UIA.")
                 }
             }
         }
