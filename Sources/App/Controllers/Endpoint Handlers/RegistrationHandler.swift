@@ -218,6 +218,13 @@ struct RegistrationHandler: EndpointHandler {
             
             let response = try await proxyResponse.encodeResponse(for: req)
             req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
+            
+            // FIXME: If the user validated an email address, we should also add it as a 3pid
+            // * We can either send a PUT to /_synapse/admin/v2/users/<user_id>
+            //   https://matrix-org.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+            //   Or we can use that same endpoint to create the user in the first place,
+            //   and include the email address in that first call to create the user
+            
             return response
             
             /*
