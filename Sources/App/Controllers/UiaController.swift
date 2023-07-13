@@ -9,7 +9,6 @@ import Vapor
 import Yams
 import AnyCodable
 
-extension HTTPMethod: Codable { }
 
 struct UiaController: RouteCollection {
 
