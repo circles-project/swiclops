@@ -7,7 +7,7 @@
 
 import Vapor
 
-struct Endpoint {
+struct Endpoint: Codable {
     let method: HTTPMethod
     let path: String
     
