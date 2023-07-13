@@ -28,8 +28,11 @@ struct PassthruHandler: EndpointHandler {
     func handle(req: Request) async throws -> Response {
         req.logger.debug("Passthru: Handling request for \(req.url.path)")
         
+        // Re-map the request path onto our backend homeserver
+        let clientRequestURL = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
+
         let clientReq = ClientRequest(method: req.method,
-                                      url: req.url,
+                                      url: clientRequestURL,
                                       headers: req.headers,
                                       body: req.body.data,
                                       byteBufferAllocator: self.allocator)
