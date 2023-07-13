@@ -22,6 +22,7 @@ struct UiaController: RouteCollection {
     var flows: [Endpoint: [UiaFlow]]
     var defaultFlows: [UiaFlow]
     var defaultProxyHandler: EndpointHandler
+    var passthruHandler: PassthruHandler
     
     // For remembering when a given client last completed UIA with us
     // This way, we can avoid bothering them again when they just authed for another request
@@ -40,6 +41,7 @@ struct UiaController: RouteCollection {
         
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
+        var passthruEndpoints: [Endpoint]?
         
         struct UiaRoute: Codable {
             var path: String
@@ -58,6 +60,7 @@ struct UiaController: RouteCollection {
             case registration
             case routes
             case defaultFlows = "default_flows"
+            case passthruEndpoints = "passthru_endpoints"
         }
     }
     
@@ -124,6 +127,7 @@ struct UiaController: RouteCollection {
                 self.handlers[endpoint] = module
             }
         }
+        self.passthruHandler = PassthruHandler(app: app, homeserver: matrixConfig.homeserver, endpoints: self.config.passthruEndpoints ?? [])
 
     }
     
@@ -259,6 +263,14 @@ struct UiaController: RouteCollection {
                     try await handleUIA(req: req, flows: policyFlows)
                     
                     return try await defaultProxyHandler.handle(req: req)
+                }
+            }
+        }
+        
+        if let passthruEndpoints = self.config.passthruEndpoints {
+            for endpoint in passthruEndpoints {
+                matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
+                    try await passthruHandler.handle(req: req)
                 }
             }
         }
