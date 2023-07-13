@@ -25,7 +25,7 @@ struct PassthruHandler: EndpointHandler {
         self.allocator = .init()
     }
     
-    func handle(req: Vapor.Request) async throws -> Vapor.Response {
+    func handle(req: Request) async throws -> Response {
         req.logger.debug("Passthru: Handling request for \(req.url.path)")
         
         let clientReq = ClientRequest(method: req.method,
