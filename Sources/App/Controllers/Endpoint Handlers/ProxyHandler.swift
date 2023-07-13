@@ -9,7 +9,6 @@ import Vapor
 import AnyCodable
 import Foundation
 
-extension AnyCodable: Content { }
 
 struct ProxyHandler: EndpointHandler {
     var endpoints: [Endpoint]
@@ -34,6 +33,7 @@ struct ProxyHandler: EndpointHandler {
     func forward(req: Request, to uri: URI, with content: GenericContent? = nil) async throws -> ClientResponse {
         req.logger.debug("ProxyHandler: Forwarding \(req.method) request to [\(uri)]")
         // Debugging: Did we craft a reasonable thing here as our request???
+        /*
         if let body = content {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
@@ -41,6 +41,7 @@ struct ProxyHandler: EndpointHandler {
             let string = String(data: json, encoding: .utf8)!
             req.logger.debug("ProxyHandler: POST request body = \(string)")
         }
+        */
 
         switch req.method {
             
