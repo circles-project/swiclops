@@ -166,6 +166,8 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let existingUsername = try await Username.find(username, on: req.db)
         if let record = existingUsername {
             if record.status == .pending {
+                // cvw: FIXME: Let's loosen this up a bit
+                // * Allow a user with the same subscription identifier or the same email address to pick up where they left off and complete registration with the same username
                 if record.reason == sessionId {
                     // There is already a pending registration but it's us
                     req.logger.debug("User is already pending but it's for this UIA session so it's OK")
@@ -174,7 +176,7 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                 // OK there is (was?) a pending registration for some other session.  Is it an old one or is it current?
                 let now = Date()
                 // Here "current" means within the past n minutes
-                let timeoutMinutes = 20.0
+                let timeoutMinutes = 10.0
                 if record.created!.distance(to: now) < timeoutMinutes * 60.0 {
                     req.logger.debug("Username is already pending for someone else")
                     throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
