@@ -28,8 +28,14 @@ struct Mailchimp {
                           apiKey: String,
                           tags: [String] = []
     ) async throws {
+        req.logger.debug("Subscribing user \(email) to Mailchimp list \(listId)")
+        
         let url = URI(scheme: server.scheme, host: server.host, port: server.port, path: "/lists/\(listId)/members")
-        let headers = HTTPHeaders([("Authorization", "Bearer: \(apiKey))")])
+        let headers = HTTPHeaders([
+            ("Authorization", "Bearer: \(apiKey))"),
+            ("Content-Type", "application/json"),
+            ("Accept", "application/json"),
+        ])
         
         struct RequestBody: Content {
             var emailAddress: String
@@ -100,6 +106,7 @@ struct Mailchimp {
         
         guard response.status == .ok
         else {
+            req.logger.error("Mailchimp request rejected with status \(response.status)")
             throw Abort(.internalServerError)
         }
     }

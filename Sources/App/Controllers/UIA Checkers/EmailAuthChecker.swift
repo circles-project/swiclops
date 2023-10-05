@@ -261,7 +261,8 @@ struct EmailAuthChecker: AuthChecker {
                subscribeUserToList == true,
                let mailchimp = config.mailchimp
             {
-                // FIXME: TODO: Send the Mailchimp API request to add `userEmail` to our list
+                req.logger.debug("m.enroll.email: Subscribing user to our mailing list")
+                try await Mailchimp.subscribe(email: userEmail, to: mailchimp.listId, for: req, server: mailchimp.server, apiKey: mailchimp.apiKey)
             }
         } else {
             let msg = "m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session"
