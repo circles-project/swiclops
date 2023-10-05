@@ -38,6 +38,7 @@ struct UiaController: RouteCollection {
         //var bsspekeOprfSecret: String
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
+        var googlePlay: PlayStoreSubscriptionChecker.Config?
         
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
@@ -56,6 +57,7 @@ struct UiaController: RouteCollection {
             //case domain
             case email
             case terms
+            case googlePlay = "google_play"
             //case homeserver
             case registration
             case routes
@@ -92,11 +94,16 @@ struct UiaController: RouteCollection {
             EmailAuthChecker(app: app, config: config.email),
             FooAuthChecker(),
             BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
-
         ]
         
-        if let terms = config.terms {
-            authCheckerModules.append(TermsAuthChecker(app: app, config: terms))
+        if let termsConfig = config.terms {
+            authCheckerModules.append(TermsAuthChecker(app: app, config: termsConfig))
+        }
+        
+        if let googleConfig = config.googlePlay {
+            authCheckerModules.append(
+                PlayStoreSubscriptionChecker(app: app, config: googleConfig)
+            )
         }
         
         self.checkers = [:]

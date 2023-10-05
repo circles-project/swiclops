@@ -10,29 +10,32 @@ import Fluent
 
 import AnyCodable
 
+let AUTH_TYPE_PLAYSTORE_SUBSCRIPTION = "org.futo.subscription.google_play"
 
 struct PlayStoreSubscriptionChecker: AuthChecker {
-    static let AUTH_TYPE_PLAYSTORE_SUBSCRIPTION = "org.futo.subscription.google_play"
     
-    var productIds: [String]
-    
+    let PROVIDER_GOOGLE_PLAY = "google_play"
+    var app: Application
+    var config: Config
     struct Config: Codable {
         var productIds: [String]
+        var packageIds: [String]
     }
     
-    init(config: Config) {
-        self.productIds = config.productIds
+    init(app: Application, config: Config) {
+        self.app = app
+        self.config = config
     }
     
     func getSupportedAuthTypes() -> [String] {
         [
-            PlayStoreSubscriptionChecker.AUTH_TYPE_PLAYSTORE_SUBSCRIPTION
+            AUTH_TYPE_PLAYSTORE_SUBSCRIPTION
         ]
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         return [
-            "product_ids": AnyCodable(self.productIds)
+            "product_ids": AnyCodable(self.config.productIds)
         ]
     }
     
@@ -73,10 +76,13 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         let token = auth.token
         
         // First order of business: Are these valid parameters for our available subscriptions?
-        if !productIds.contains(subscriptionId) {
+        if !config.productIds.contains(subscriptionId) {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid subscription product id")
         }
-        // FIXME: Also check package
+        // Also check that the package identifier is valid
+        if !config.packageIds.contains(package) {
+            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Unknown package id")
+        }
         
         // Ok we have a valid request from the client
         // Now we need to validate their subscription purchase
@@ -90,16 +96,18 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         
         // The response should contain transaction data
         guard let transaction = try? googleResponse.content.decode(GooglePlay.SubscriptionPurchase.self) else {
+            req.logger.error("Failed to validate subscription purchase")
             throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "Failed to validate subscription purchase")
         }
         
         // Verify that the subscription period includes the current time
         let now = Date()
-        let startDate = Date(timeIntervalSince1970: Double(transaction.startTimeMillis))
-        let endDate = Date(timeIntervalSince1970: Double(transaction.expiryTimeMillis))
         let wiggleRoom: TimeInterval = 5 * 60.0  // Allow for clocks to be off by up to 5 minutes
+        let startDate = Date(timeIntervalSince1970: Double(transaction.startTimeMillis)) - wiggleRoom
+        let endDate = Date(timeIntervalSince1970: Double(transaction.expiryTimeMillis)) + wiggleRoom
         
-        guard startDate.distance(to: now) > -wiggleRoom && now.distance(to: endDate) > 0 else {
+        guard startDate.distance(to: now) > 0 && now.distance(to: endDate) > 0 else {
+            req.logger.error("Subscription is not currently valid")
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Subscription is not currently valid")
         }
         
@@ -109,16 +117,20 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
             let acknowledgementURL = URI(string: "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/\(package)/purchases/subscriptions/\(subscriptionId)/tokens/\(token):acknowledge")
             let ackResponse = try await req.client.post(acknowledgementURL)
             guard ackResponse.status == .ok else {
+                req.logger.error("Failed to acknowledge transaction")
                 throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to acknowledge transaction")
             }
         }
 
         // Ok everything seems to check out.  Looks like we're good to go.
         // Store the subscription info in the UIA state so we can save it to the database in onEnroll()
-        await session.setData(for: PlayStoreSubscriptionChecker.AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".subscription_id", value: subscriptionId)
-        await session.setData(for: PlayStoreSubscriptionChecker.AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".token", value: token)
+        await session.setData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".subscription_id", value: subscriptionId)
+        await session.setData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".token", value: token)
+        await session.setData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".start_date", value: startDate)
+        await session.setData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".end_date", value: endDate)
         
         // And we're good!
+        req.logger.debug("Successfully validated Google Play subscription")
         return true
     }
     
@@ -127,15 +139,51 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
-        throw Abort(.notImplemented)
+        // FIXME: Pull the subscription information out of the UIA session and save it to the database
+        //   * Subscription product id
+        //   * Identifier token
+        //   * Expiration date
+        
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            let msg = "Couldn't parse UIA request"
+            req.logger.error("Couldn't parse UIA request")
+            throw MatrixError(status: .internalServerError, errcode: .badJson, error: msg)
+        }
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
+        
+        guard let subscriptionProductId = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".subscription_id") as? String,
+              let token = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".token") as? String,
+              let startDate = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".start_date") as? Date,
+              let endDate = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".end_date") as? Date
+        else {
+            req.logger.error("Could not retrieve subscription infofor Google Play")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error finalizing Google Play subscription")
+        }
+        
+        let subscription = Subscription(userId: userId,
+                                        provider: PROVIDER_GOOGLE_PLAY,
+                                        identifier: token,
+                                        startDate: startDate,
+                                        endDate: endDate,
+                                        level: subscriptionProductId)
+        
+        try await subscription.save(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        throw Abort(.notImplemented)
+        let subscriptions = try await Subscription
+                                        .query(on: app.db)
+                                        .filter(\.$userId == userId)
+                                        .filter(\.$provider == PROVIDER_GOOGLE_PLAY)
+                                        .all()
+
+        return !subscriptions.isEmpty
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        throw Abort(.notImplemented)
+        // Don't ever remove us from the flows -- If we're there, we're there for a reason!
+        return true
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
