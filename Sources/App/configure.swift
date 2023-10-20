@@ -94,3 +94,46 @@ private func _loadConfiguration() throws -> AppConfig {
     let localConfig = try AppConfig(filename: "swiclops.yml")
     return localConfig
 }
+
+// FIXME: Call this from somewhere when we start up
+private func login(app: Application,
+                   homeserver: URL,
+                   username: String,
+                   password: String
+) async throws -> MatrixCredentials? {
+
+    let requestBody = LoginRequestBody(identifier: .init(type: "m.id.user", user: username),
+                                       type: "m.login.password",
+                                       password: password)
+    
+    let uri = URI(scheme: homeserver.scheme,
+                  host: homeserver.host,
+                  port: homeserver.port,
+                  path: "/_matrix/client/v3/login")
+    
+    let headers = HTTPHeaders([
+        ("Content-Type", "application/json"),
+        ("Accept", "application/json")
+    ])
+    
+    app.logger.debug("Sending login request for admin creds")
+    let response = try await app.client.post(uri, headers: headers, content: requestBody)
+
+    guard response.status == .ok
+    else {
+        app.logger.error("Login failed - got HTTP \(response.status.code) \(response.status.reasonPhrase)")
+        throw MatrixError(status: response.status, errcode: .unauthorized, error: "Login failed")
+    }
+    
+    let decoder = JSONDecoder()
+    guard let buffer = response.body,
+          let creds = try? decoder.decode(MatrixCredentials.self, from: buffer)
+    else {
+        app.logger.error("Failed to parse admin credentials")
+        throw MatrixError(status: .internalServerError, errcode: .badJson, error: "Failed to get admin credentials")
+    }
+    
+    app.logger.debug("Login success!")
+    app.logger.debug("user_id: \(creds.userId)\tdevice_id: \(creds.deviceId)\taccess_token: \(creds.accessToken)")
+    return creds
+}
