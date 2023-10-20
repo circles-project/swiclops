@@ -264,14 +264,16 @@ struct RegistrationHandler: EndpointHandler {
                         ("Authorization", "Bearer: \(creds.accessToken)")
                     ])
 
-                    let adminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
+                    let userAdminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
                     
-                    if adminResponse.status.code == 201 {
+                    if userAdminResponse.status.code == 201 {
                         req.logger.debug("Added email address \(email) for user \(userId)")
                     } else {
-                        req.logger.error("Failed to add email address")
+                        req.logger.error("Failed to add email address - got HTTP \(userAdminResponse.status.code) \(userAdminResponse.status.reasonPhrase)")
                     }
                     
+                } else {
+                    req.logger.debug("Not adding an email adddress for this user")
                 }
                 
             }
