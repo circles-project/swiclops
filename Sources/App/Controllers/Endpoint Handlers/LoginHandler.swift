@@ -89,7 +89,7 @@ struct LoginHandler: EndpointHandler {
         let token = try SharedSecretAuth.token(secret: self.authConfig.sharedSecret, userId: clientRequest.identifier.user)
         var proxyRequestBody = clientRequest
         proxyRequestBody.password = nil
-        proxyRequestBody.type = self.authConfig.type.rawValue
+        proxyRequestBody.type = "com.devture.shared_secret_auth"
         proxyRequestBody.token = token
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())

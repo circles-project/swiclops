@@ -31,11 +31,7 @@ struct UiaController: RouteCollection {
     // MARK: Config
     struct Config: Codable {
         var backendAuth: BackendAuthConfig
-        //var domain: String
-        //var homeserver: URL
-        var registration: RegistrationHandler.Config
         var bsspeke: BSSpekeAuthChecker.Config
-        //var bsspekeOprfSecret: String
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
         
@@ -51,13 +47,9 @@ struct UiaController: RouteCollection {
         
         enum CodingKeys: String, CodingKey {
             case backendAuth = "backend_auth"
-            //case bsspekeOprfSecret = "bsspeke_oprf_secret"
             case bsspeke
-            //case domain
             case email
             case terms
-            //case homeserver
-            case registration
             case routes
             case defaultFlows = "default_flows"
             case passthruEndpoints = "passthru_endpoints"
@@ -115,7 +107,7 @@ struct UiaController: RouteCollection {
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
-            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
+            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, sharedSecret: config.backendAuth.sharedSecret),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),

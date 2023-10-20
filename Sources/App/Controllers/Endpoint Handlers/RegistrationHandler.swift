@@ -24,7 +24,37 @@ struct BasicRegisterRequestBody: Content {
         case initialDeviceDisplayName = "initial_device_display_name"
         case password
         case refreshToken = "refresh_token"
-        //case username
+    }
+}
+
+struct SynapseAdminPutUserRequestBody: Content {
+    var password: String?
+    var logout_devices: Bool?
+    var displayname: String?
+    var avatar_url: String?
+    var threepids: [ThreePid]?
+    struct ThreePid: Codable {
+        var medium: Medium
+        enum Medium: String, Codable {
+            case email
+            case msisdn
+        }
+        var address: String
+    }
+    var externalIds: [ExternalId]?
+    struct ExternalId: Codable {
+        var auth_provider: String
+        var external_id: String
+    }
+    var admin: Bool?
+    var deactivated: Bool?
+    var locked: Bool?
+    var user_type: String?
+    
+    init(email: String? = nil) {
+        if let emailAddress = email {
+            self.threepids = [ThreePid(medium: .email, address: emailAddress)]
+        }
     }
 }
 
@@ -99,25 +129,21 @@ struct RegistrationHandler: EndpointHandler {
     let app: Application
     let homeserver: URL
     var endpoints: [Endpoint]
-    var config: Config
     
-    struct Config: Codable {
-        var sharedSecret: String
-        var useAdminApi: Bool
+    var sharedSecret: String
+    var creds: MatrixCredentials?
         
-        enum CodingKeys: String, CodingKey {
-            case sharedSecret = "shared_secret"
-            case useAdminApi = "use_admin_api"
-        }
-    }
     
-    init(app: Application, homeserver: URL, config: Config) {
+
+    
+    init(app: Application, homeserver: URL, sharedSecret: String, creds: MatrixCredentials? = nil) {
         self.app = app
         self.homeserver = homeserver
         self.endpoints = [
             .init(.POST, "/register"),
         ]
-        self.config = config
+        self.sharedSecret = sharedSecret
+        self.creds = creds
     }
     
     
@@ -152,13 +178,15 @@ struct RegistrationHandler: EndpointHandler {
         }
         req.logger.debug("RegistrationHandler: username = [\(username)")
         
+        
         // We don't really handle /register requests all by ourselves
         // We handle all the authentication parts, but the "real" homeserver is the one who actually creates the account
         // Now that the UIA is done, we need to craft a /register request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
         
-        if self.config.useAdminApi {
-            // -- Here we're using the shared secret approach from the Synapse admin API https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
+
+            
+            // -- Here we're using the shared secret approach from the Synapse admin API v1 https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
             
             // First get a fresh nonce from the homeserver
             let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
@@ -173,7 +201,7 @@ struct RegistrationHandler: EndpointHandler {
             req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
                         
             // Build the shared-secret request from the normal request and the crypto material
-            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: self.config.sharedSecret)
+            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: sharedSecret)
             
             // We have to use the special admin API, not the normal client-server endpoint
             let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
@@ -214,39 +242,44 @@ struct RegistrationHandler: EndpointHandler {
                 let auth = uiaResponse.auth
                 let session = req.uia.connectSession(sessionId: auth.session)
                 await session.setData(for: "user_id", value: userId)
+                
+                
+                // If the user validated an email address, we should also add it as a 3pid
+                //   * To do this, we send a PUT to /_synapse/admin/v2/users/<user_id>
+                //     https://matrix-org.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+                //     - Alternatively, we could just make a single call to the admin API v2 endpoint
+                //     - But then we would have to handle all the other junk that /register normally does.. initial device id, etc.
+                //   * Then we can send the user email notifications about important things that happen on the server (downtime, new messages, etc)
+                // HOWEVER to do this requires that we have admin user credentials on the homeserver
+                if let creds = self.creds,
+                   let email = await session.getData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email") as? String
+                {
+                    req.logger.debug("Calling Synapse admin API v2 to add email address")
+                    
+                    let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v2/users/\(userId)")
+                    
+                    let requestBody = SynapseAdminPutUserRequestBody(email: email)
+                    
+                    let headers = HTTPHeaders([
+                        ("Authorization", "Bearer: \(creds.accessToken)")
+                    ])
+
+                    let adminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
+                    
+                    if adminResponse.status.code == 201 {
+                        req.logger.debug("Added email address \(email) for user \(userId)")
+                    } else {
+                        req.logger.error("Failed to add email address")
+                    }
+                    
+                }
+                
             }
             
             let response = try await proxyResponse.encodeResponse(for: req)
             req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
             
-            // FIXME: If the user validated an email address, we should also add it as a 3pid
-            // * We can either send a PUT to /_synapse/admin/v2/users/<user_id>
-            //   https://matrix-org.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
-            //   Or we can use that same endpoint to create the user in the first place,
-            //   and include the email address in that first call to create the user
-            
             return response
-            
-            /*
-            if let buf = proxyResponse.body {
-                req.logger.debug("RegistrationHandler: Admin API response has a body")
-                if let stringBody = buf.readNullTerminatedString() {
-                    req.logger.debug("RegistrationHandler: Response body is [\(stringBody)]")
-                } else {
-                    req.logger.debug("RegistrationHandler: Failed to convert response body to a String")
-                }
-                return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: Response.Body(buffer: buf))
-            } else {
-                return Response(status: proxyResponse.status, headers: proxyResponse.headers)
-            }
-            */
-        }
-        else {
-            // Not using the admin API
-            // Here we forward the request to the normal CS API endpoint, with m.login.dummy for the UIA
-            
-            throw Abort(.notImplemented)
-        }
     }
     
 }

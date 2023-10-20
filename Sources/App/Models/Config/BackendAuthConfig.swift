@@ -7,15 +7,12 @@
 
 import Vapor
 
-struct BackendAuthConfig: Codable {
-    enum BackendAuthType: String, Codable {
-        case devtureSharedSecret = "com.devture.shared_secret_auth"
-    }
-    var type: BackendAuthType
+struct BackendAuthConfig: Codable {    
     var sharedSecret: String
+    var creds: MatrixCredentials?
     
     enum CodingKeys: String, CodingKey {
-        case type
         case sharedSecret = "shared_secret"
+        case creds
     }
 }
