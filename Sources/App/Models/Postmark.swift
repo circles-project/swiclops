@@ -10,6 +10,10 @@ import Vapor
 struct Postmark {
     // https://postmarkapp.com/developer/api/email-api
     
+    struct Config: Codable {
+        var token: String
+    }
+    
     static func sendEmail(from: String,
                           to: String,
                           subject: String,
