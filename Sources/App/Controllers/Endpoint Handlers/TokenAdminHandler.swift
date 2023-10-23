@@ -10,7 +10,6 @@ import Fluent
 
 struct TokenAdminHandler: EndpointHandler {
     var app: Application
-    var homeserver: URL
     var endpoints: [Endpoint] = [
         .init(.GET, "/registration_tokens"),
         .init(.GET, "/registration_tokens/:token"),
@@ -19,9 +18,8 @@ struct TokenAdminHandler: EndpointHandler {
         .init(.DELETE, "/registration_tokens/:token"),
     ]
     
-    init(app: Application, homeserver: URL) {
+    init(app: Application) {
         self.app = app
-        self.homeserver = homeserver
     }
     
     func handle(req: Request) async throws -> Response {
@@ -56,7 +54,15 @@ struct TokenAdminHandler: EndpointHandler {
         // Or do we not care???
         // Send a request to GET /_matrix/client/:version/whoami
         let version = req.parameters.get("version") ?? "v3"
-        let uri1 = URI(host: self.homeserver.host, path: "/_matrix/client/\(version)/whoami")
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        let homeserver = config.matrix.homeserver
+        
+        let uri1 = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/\(version)/whoami")
         let response1 = try await req.client.get(uri1)
         
         // Extract username from the response
@@ -71,7 +77,7 @@ struct TokenAdminHandler: EndpointHandler {
         let userId = r1ResponseBody.userId
         
         // Send a request to GET /_synapse/admin/v2/users/:user_id
-        let uri2 = URI(host: self.homeserver.host, path: "/_matrix/admin/v2/users/\(userId)")
+        let uri2 = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/admin/v2/users/\(userId)")
         let response2 = try await req.client.get(uri2)
         
         // Verify that the user is an admin

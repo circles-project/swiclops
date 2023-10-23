@@ -43,6 +43,9 @@ public func configure(_ app: Application) throws {
         throw Abort(.internalServerError)
     }
     
+    // Save the application config in the app's own storage, for access later at runtime
+    app.config = config
+    
     // database
     switch config.database {
     case .sqlite(let sqliteConfig):
@@ -70,11 +73,14 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
     
+    // admin backend
+    app.lifecycle.use(SynapseAdminBackend(sharedSecret: config.adminBackend.sharedSecret))
+    
     // routes
     app.logger.info("Configuring routes")
     let uiaController = try UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
     try app.register(collection: uiaController)
-    let adminController = AdminApiController(app: app, config: config.admin, matrixConfig: config.matrix)
+    let adminController = AdminApiController(app: app, config: config.adminApi, matrixConfig: config.matrix)
     try app.register(collection: adminController)
     //try routes(app)
     
@@ -94,3 +100,5 @@ private func _loadConfiguration() throws -> AppConfig {
     let localConfig = try AppConfig(filename: "swiclops.yml")
     return localConfig
 }
+
+

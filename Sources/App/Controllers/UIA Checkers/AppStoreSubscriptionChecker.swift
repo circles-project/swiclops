@@ -24,6 +24,8 @@ struct AppStoreSubscriptionChecker: AuthChecker {
         var auth: AuthDict
     }
     
+    
+    
     init(productIds: [String], secret: String, environment: AppStore.Environment) {
         self.productIds = productIds
         self.secret = secret

@@ -14,16 +14,12 @@ struct ProxyHandler: EndpointHandler {
     var endpoints: [Endpoint]
     
     var app: Application
-    var homeserver: URL
-    var backendAuthConfig: BackendAuthConfig
     var allocator: ByteBufferAllocator
     
     typealias GenericContent = [String: AnyCodable]
     
-    init(app: Application, homeserver: URL, authConfig: BackendAuthConfig) {
+    init(app: Application) {
         self.app = app
-        self.homeserver = homeserver
-        self.backendAuthConfig = authConfig
         
         self.endpoints = []
         
@@ -77,6 +73,14 @@ struct ProxyHandler: EndpointHandler {
         var myRequestBody = requestBody
         myRequestBody["auth"] = nil
         
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
+        
         // Now pass the rest of the request body on to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
 
@@ -107,7 +111,12 @@ struct ProxyHandler: EndpointHandler {
                     req.logger.debug("Homeserver did not provide any UIA params")
                 }
             }
-            let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
+            guard let sharedSecret = app.admin?.sharedSecret
+            else {
+                req.logger.error("Could not get admin shared secret")
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not perform backend auth")
+            }
+            let token = try SharedSecretAuth.token(secret: sharedSecret, userId: userId)
             req.logger.debug("ProxyHandler: Computed token [\(token)] for user [\(userId)]")
             
             // Now we can send the authenticated version of the request
@@ -139,6 +148,14 @@ struct ProxyHandler: EndpointHandler {
     
     private func whoAmI(for req: Request) async throws -> String {
         req.logger.debug("ProxyHandler.whoAmI ???")
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
 
         let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/account/whoami")
         //req.logger.debug("ProxyHandler.whoAmI Sending request to \(uri) with headers = \(req.headers)")

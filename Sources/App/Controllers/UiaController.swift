@@ -30,12 +30,8 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var backendAuth: BackendAuthConfig
-        //var domain: String
-        //var homeserver: URL
-        var registration: RegistrationHandler.Config
+        var backendAuth: AdminBackendConfig
         var bsspeke: BSSpekeAuthChecker.Config
-        //var bsspekeOprfSecret: String
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
         
@@ -51,13 +47,9 @@ struct UiaController: RouteCollection {
         
         enum CodingKeys: String, CodingKey {
             case backendAuth = "backend_auth"
-            //case bsspekeOprfSecret = "bsspeke_oprf_secret"
             case bsspeke
-            //case domain
             case email
             case terms
-            //case homeserver
-            case registration
             case routes
             case defaultFlows = "default_flows"
             case passthruEndpoints = "passthru_endpoints"
@@ -107,15 +99,13 @@ struct UiaController: RouteCollection {
         }
         
         // Set up our endpoint handlers, that take over after UIA is complete
-        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver, authConfig: config.backendAuth)
+        self.defaultProxyHandler = ProxyHandler(app: self.app)
         let loginHandler = LoginHandler(app: self.app,
-                                        homeserver: matrixConfig.homeserver,
-                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
-                                        authConfig: config.backendAuth)
+                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows)
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
-            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
+            RegistrationHandler(app: self.app),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
@@ -127,7 +117,7 @@ struct UiaController: RouteCollection {
                 self.handlers[endpoint] = module
             }
         }
-        self.passthruHandler = PassthruHandler(app: app, homeserver: matrixConfig.homeserver, endpoints: self.config.passthruEndpoints ?? [])
+        self.passthruHandler = PassthruHandler(app: app, endpoints: self.config.passthruEndpoints ?? [])
 
     }
     
