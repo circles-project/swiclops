@@ -16,7 +16,7 @@ struct AdminApiController: RouteCollection {
 
     
     struct Config: Codable {
-        var versions: [String]
+
     }
     
     init(app: Application, config: Config, matrixConfig: MatrixConfig) {
