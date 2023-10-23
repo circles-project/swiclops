@@ -30,7 +30,7 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var backendAuth: BackendAuthConfig
+        var backendAuth: AdminBackendConfig
         var bsspeke: BSSpekeAuthChecker.Config
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
@@ -99,15 +99,14 @@ struct UiaController: RouteCollection {
         }
         
         // Set up our endpoint handlers, that take over after UIA is complete
-        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver, authConfig: config.backendAuth)
+        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver)
         let loginHandler = LoginHandler(app: self.app,
                                         homeserver: matrixConfig.homeserver,
-                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
-                                        authConfig: config.backendAuth)
+                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows)
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
-            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, sharedSecret: config.backendAuth.sharedSecret),
+            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),

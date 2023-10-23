@@ -38,9 +38,8 @@ struct LoginHandler: EndpointHandler {
     let homeserver: URL
     let endpoints: [Endpoint]
     let flows: [UiaFlow]
-    let authConfig: BackendAuthConfig
     
-    init(app: Application, homeserver: URL, flows: [UiaFlow], authConfig: BackendAuthConfig) {
+    init(app: Application, homeserver: URL, flows: [UiaFlow]) {
         self.app = app
         self.homeserver = homeserver
         self.endpoints = [
@@ -48,7 +47,6 @@ struct LoginHandler: EndpointHandler {
             .init(.POST, "/login"),
         ]
         self.flows = flows
-        self.authConfig = authConfig
     }
     
     func handle(req: Request) async throws -> Response {
@@ -85,8 +83,13 @@ struct LoginHandler: EndpointHandler {
         // We don't actually handle /login requests ourselves
         // We need to craft a /login request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
+        guard let sharedSecret = app.admin?.sharedSecret
+        else {
+            req.logger.error("Could not get admin shared secret")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not perform backend authorization")
+        }
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
-        let token = try SharedSecretAuth.token(secret: self.authConfig.sharedSecret, userId: clientRequest.identifier.user)
+        let token = try SharedSecretAuth.token(secret: sharedSecret, userId: clientRequest.identifier.user)
         var proxyRequestBody = clientRequest
         proxyRequestBody.password = nil
         proxyRequestBody.type = "com.devture.shared_secret_auth"

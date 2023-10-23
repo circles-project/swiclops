@@ -13,10 +13,19 @@ import Yams
 struct AppConfig: Decodable {
     //var domain: String
     //var homeserver: URL
-    var admin: AdminApiController.Config
+    var adminApi: AdminApiController.Config
+    var adminBackend: AdminBackendConfig
     var matrix: MatrixConfig
     var uia: UiaController.Config
     var database: DatabaseConfig
+    
+    enum CodingKeys: String, CodingKey {
+        case adminApi = "admin_api"
+        case adminBackend = "admin_backend"
+        case matrix
+        case uia
+        case database
+    }
     
     init(filename: String) throws {
         let configData = try Data(contentsOf: URL(fileURLWithPath: filename))

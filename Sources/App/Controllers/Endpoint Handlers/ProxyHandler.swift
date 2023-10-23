@@ -15,15 +15,13 @@ struct ProxyHandler: EndpointHandler {
     
     var app: Application
     var homeserver: URL
-    var backendAuthConfig: BackendAuthConfig
     var allocator: ByteBufferAllocator
     
     typealias GenericContent = [String: AnyCodable]
     
-    init(app: Application, homeserver: URL, authConfig: BackendAuthConfig) {
+    init(app: Application, homeserver: URL) {
         self.app = app
         self.homeserver = homeserver
-        self.backendAuthConfig = authConfig
         
         self.endpoints = []
         
@@ -107,7 +105,12 @@ struct ProxyHandler: EndpointHandler {
                     req.logger.debug("Homeserver did not provide any UIA params")
                 }
             }
-            let token = try SharedSecretAuth.token(secret: backendAuthConfig.sharedSecret, userId: userId)
+            guard let sharedSecret = app.admin?.sharedSecret
+            else {
+                req.logger.error("Could not get admin shared secret")
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not perform backend auth")
+            }
+            let token = try SharedSecretAuth.token(secret: sharedSecret, userId: userId)
             req.logger.debug("ProxyHandler: Computed token [\(token)] for user [\(userId)]")
             
             // Now we can send the authenticated version of the request
