@@ -66,8 +66,14 @@ struct EmailAuthChecker: AuthChecker {
         ]
     }
     
-    func getParams(req: Request, sessionId: String, authType: String, userId maybeUserId: String?) async throws -> [String : AnyCodable]? {
-        if EmailAuthChecker.LOGIN_REQUEST_TOKEN == authType {
+    func getParams(req: Request,
+                   sessionId: String,
+                   authType: String,
+                   userId maybeUserId: String?
+    ) async throws -> [String : AnyCodable]? {
+
+        switch authType {
+        case EmailAuthChecker.LOGIN_REQUEST_TOKEN:
             // The user is already registered, so we know what their valid email address(es) are
             // If they have more than one address, they need to tell us which one to use
             
@@ -76,16 +82,23 @@ struct EmailAuthChecker: AuthChecker {
                 throw Abort(.internalServerError)
             }
             
-            let emailAddressRecords = try await UserEmailAddress.query(on: req.db).filter(\.$userId == userId).all()
-            var emailAddresses: [String] = []
-            for record in emailAddressRecords {
-                let email = record.email
-                emailAddresses.append(email)
-            }
+            let emailAddressRecords = try await UserEmailAddress
+                                                    .query(on: req.db)
+                                                    .filter(\.$userId == userId)
+                                                    .all()
+            let emailAddresses = emailAddressRecords.map { $0.email }
             
             return ["addresses": AnyCodable(emailAddresses)]
             
-        } else {
+        case EmailAuthChecker.ENROLL_REQUEST_TOKEN:
+            if let _ = app.config?.uia.email.mailchimp {
+                // We have a mailing list.  Offer it to the user.
+                return ["offer_list_subscription": true]
+            } else {
+                return nil
+            }
+
+        default:
             return nil
         }
     }
