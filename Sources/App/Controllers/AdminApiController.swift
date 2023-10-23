@@ -24,7 +24,7 @@ struct AdminApiController: RouteCollection {
         self.config = config
         
         let endpointHandlerModules: [EndpointHandler] = [
-            TokenAdminHandler(app: self.app, homeserver: matrixConfig.homeserver)
+            TokenAdminHandler(app: self.app)
         ]
         
         self.handlers = [:]

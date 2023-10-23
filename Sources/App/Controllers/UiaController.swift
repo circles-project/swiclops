@@ -99,14 +99,13 @@ struct UiaController: RouteCollection {
         }
         
         // Set up our endpoint handlers, that take over after UIA is complete
-        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver)
+        self.defaultProxyHandler = ProxyHandler(app: self.app)
         let loginHandler = LoginHandler(app: self.app,
-                                        homeserver: matrixConfig.homeserver,
                                         flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows)
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
-            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver),
+            RegistrationHandler(app: self.app),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
@@ -118,7 +117,7 @@ struct UiaController: RouteCollection {
                 self.handlers[endpoint] = module
             }
         }
-        self.passthruHandler = PassthruHandler(app: app, homeserver: matrixConfig.homeserver, endpoints: self.config.passthruEndpoints ?? [])
+        self.passthruHandler = PassthruHandler(app: app, endpoints: self.config.passthruEndpoints ?? [])
 
     }
     

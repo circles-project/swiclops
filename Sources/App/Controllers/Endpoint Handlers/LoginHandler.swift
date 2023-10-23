@@ -35,13 +35,11 @@ struct LoginRequestBody: Content {
 struct LoginHandler: EndpointHandler {
     
     let app: Application
-    let homeserver: URL
     let endpoints: [Endpoint]
     let flows: [UiaFlow]
     
-    init(app: Application, homeserver: URL, flows: [UiaFlow]) {
+    init(app: Application, flows: [UiaFlow]) {
         self.app = app
-        self.homeserver = homeserver
         self.endpoints = [
             .init(.GET, "/login"),
             .init(.POST, "/login"),
@@ -88,6 +86,15 @@ struct LoginHandler: EndpointHandler {
             req.logger.error("Could not get admin shared secret")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not perform backend authorization")
         }
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
+        
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
         let token = try SharedSecretAuth.token(secret: sharedSecret, userId: clientRequest.identifier.user)
         var proxyRequestBody = clientRequest

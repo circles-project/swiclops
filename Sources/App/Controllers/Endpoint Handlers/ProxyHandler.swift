@@ -14,14 +14,12 @@ struct ProxyHandler: EndpointHandler {
     var endpoints: [Endpoint]
     
     var app: Application
-    var homeserver: URL
     var allocator: ByteBufferAllocator
     
     typealias GenericContent = [String: AnyCodable]
     
-    init(app: Application, homeserver: URL) {
+    init(app: Application) {
         self.app = app
-        self.homeserver = homeserver
         
         self.endpoints = []
         
@@ -74,6 +72,14 @@ struct ProxyHandler: EndpointHandler {
         // Remove the "auth" object that was used for UIA
         var myRequestBody = requestBody
         myRequestBody["auth"] = nil
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
         
         // Now pass the rest of the request body on to the real homeserver
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
@@ -142,6 +148,14 @@ struct ProxyHandler: EndpointHandler {
     
     private func whoAmI(for req: Request) async throws -> String {
         req.logger.debug("ProxyHandler.whoAmI ???")
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
 
         let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/account/whoami")
         //req.logger.debug("ProxyHandler.whoAmI Sending request to \(uri) with headers = \(req.headers)")

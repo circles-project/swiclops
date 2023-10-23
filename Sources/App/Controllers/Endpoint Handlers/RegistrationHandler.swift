@@ -127,13 +127,11 @@ struct RegisterResponseBody: Content {
 
 struct RegistrationHandler: EndpointHandler {
     let app: Application
-    let homeserver: URL
     var endpoints: [Endpoint]
     
     
-    init(app: Application, homeserver: URL) {
+    init(app: Application) {
         self.app = app
-        self.homeserver = homeserver
         self.endpoints = [
             .init(.POST, "/register"),
         ]
@@ -182,6 +180,14 @@ struct RegistrationHandler: EndpointHandler {
             req.logger.error("Could get admin backend")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not get admin backend")
         }
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Could not get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not get configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
 
         // -- Here we're using the shared secret approach from the Synapse admin API v1 https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
         
