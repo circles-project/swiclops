@@ -13,14 +13,12 @@ import Yams
 struct AppConfig: Decodable {
     //var domain: String
     //var homeserver: URL
-    var adminApi: AdminApiController.Config
     var adminBackend: AdminBackendConfig
     var matrix: MatrixConfig
     var uia: UiaController.Config
     var database: DatabaseConfig
     
     enum CodingKeys: String, CodingKey {
-        case adminApi = "admin_api"
         case adminBackend = "admin_backend"
         case matrix
         case uia

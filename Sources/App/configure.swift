@@ -80,7 +80,7 @@ public func configure(_ app: Application) throws {
     app.logger.info("Configuring routes")
     let uiaController = try UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
     try app.register(collection: uiaController)
-    let adminController = AdminApiController(app: app, config: config.adminApi, matrixConfig: config.matrix)
+    let adminController = AdminApiController(app: app, matrixConfig: config.matrix)
     try app.register(collection: adminController)
     //try routes(app)
     

@@ -11,17 +11,11 @@ import Fluent
 struct AdminApiController: RouteCollection {
     
     var app: Application
-    var config: Config
     var handlers: [Endpoint: EndpointHandler] // Handlers for the admin API
 
     
-    struct Config: Codable {
-
-    }
-    
-    init(app: Application, config: Config, matrixConfig: MatrixConfig) {
+    init(app: Application, matrixConfig: MatrixConfig) {
         self.app = app
-        self.config = config
         
         let endpointHandlerModules: [EndpointHandler] = [
             TokenAdminHandler(app: self.app)
