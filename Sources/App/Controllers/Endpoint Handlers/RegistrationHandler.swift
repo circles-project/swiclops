@@ -177,7 +177,7 @@ struct RegistrationHandler: EndpointHandler {
         
         guard let admin = req.application.admin
         else {
-            req.logger.error("Could get admin backend")
+            req.logger.error("Could not get admin backend")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not get admin backend")
         }
         
