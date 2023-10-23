@@ -206,7 +206,8 @@ struct RegistrationHandler: EndpointHandler {
 
                         
         // Build the shared-secret request from the normal request and the crypto material
-        let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: admin.sharedSecret)
+        let secret = config.uia.registration.sharedSecret
+        let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: secret)
             
         // We have to use the special admin API, not the normal client-server endpoint
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")

@@ -34,6 +34,15 @@ struct UiaController: RouteCollection {
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
         
+        var registration: RegistrationConfig
+        struct RegistrationConfig: Codable {
+            var sharedSecret: String
+            
+            enum CodingKeys: String, CodingKey {
+                case sharedSecret = "shared_secret"
+            }
+        }
+        
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         var passthruEndpoints: [Endpoint]?
@@ -48,6 +57,7 @@ struct UiaController: RouteCollection {
             case bsspeke
             case email
             case terms
+            case registration
             case routes
             case defaultFlows = "default_flows"
             case passthruEndpoints = "passthru_endpoints"
