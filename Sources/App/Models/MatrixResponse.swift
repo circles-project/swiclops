@@ -53,6 +53,7 @@ struct MatrixError: AbortError {
         case exclusive = "M_EXCLUSIVE"
         case resourceLimitExceeded = "M_RESOURCE_LIMIT_EXCEEDED"
         case cannotLeaveServerNoticeRoom = "M_CANNOT_LEAVE_SERVER_NOTICE_ROOM"
+        case expiredAccount = "ORG_MATRIX_EXPIRED_ACCOUNT" // https://matrix-org.github.io/synapse/latest/modules/account_validity_callbacks.html
     }
     
     struct Body: Content {
