@@ -30,7 +30,6 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var backendAuth: AdminBackendConfig
         var bsspeke: BSSpekeAuthChecker.Config
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
@@ -46,7 +45,6 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
-            case backendAuth = "backend_auth"
             case bsspeke
             case email
             case terms
