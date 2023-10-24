@@ -32,7 +32,7 @@ struct Mailchimp {
         
         let url = URI(scheme: server.scheme, host: server.host, port: server.port, path: "/lists/\(listId)/members")
         let headers = HTTPHeaders([
-            ("Authorization", "Bearer: \(apiKey))"),
+            ("Authorization", "Bearer: \(apiKey)"),
             ("Content-Type", "application/json"),
             ("Accept", "application/json"),
         ])
