@@ -285,6 +285,8 @@ struct RegistrationHandler: EndpointHandler {
                     ("Content-Type", "application/json"),
                     ("Authorization", "Bearer: \(creds.accessToken)")
                 ])
+                
+                req.logger.debug("Sending /users admin request with headers = \(headers)")
 
                 let userAdminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
                 
