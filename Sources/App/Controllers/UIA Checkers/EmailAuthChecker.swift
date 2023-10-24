@@ -17,7 +17,7 @@ struct EmailAuthChecker: AuthChecker {
     static let LOGIN_REQUEST_TOKEN = "m.login.email.request_token"
     static let LOGIN_SUBMIT_TOKEN = "m.login.email.submit_token"
     
-    let FROM_ADDRESS = "circuli@circu.li"
+    let FROM_ADDRESS = "circles-noreply@futo.org"
     
     let config: EmailConfig
     
@@ -143,9 +143,9 @@ struct EmailAuthChecker: AuthChecker {
         let postmarkResponse = try await Postmark.sendEmail(
                                      from: FROM_ADDRESS,
                                      to: userEmail,
-                                     subject: "\(code) is your Circuli verification code",
-                                     html: "<html><body>Your verification code for Circuli is: <b>\(code)</b>.</body></html>",
-                                     text: "Your verification code for Circuli is: \(code)",
+                                     subject: "\(code) is your Circles verification code",
+                                     html: "<html><body>Your verification code for Circles is: <b>\(code)</b>.</body></html>",
+                                     text: "Your verification code for Circles is: \(code)",
                                      for: req,
                                      token: config.postmark.token)
         
