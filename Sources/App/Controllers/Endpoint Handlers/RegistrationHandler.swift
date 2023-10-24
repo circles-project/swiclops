@@ -29,9 +29,9 @@ struct BasicRegisterRequestBody: Content {
 
 struct SynapseAdminPutUserRequestBody: Content {
     var password: String?
-    var logout_devices: Bool?
+    var logoutDevices: Bool?
     var displayname: String?
-    var avatar_url: String?
+    var avatarUrl: String?
     var threepids: [ThreePid]?
     struct ThreePid: Codable {
         var medium: Medium
@@ -49,12 +49,26 @@ struct SynapseAdminPutUserRequestBody: Content {
     var admin: Bool?
     var deactivated: Bool?
     var locked: Bool?
-    var user_type: String?
+    var userType: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case password
+        case logoutDevices = "logout_devices"
+        case displayname
+        case avatarUrl = "avatar_url"
+        case threepids
+        case externalIds = "external_ids"
+        case admin
+        case deactivated
+        case locked
+        case userType = "user_type"
+    }
     
     init(email: String? = nil) {
         if let emailAddress = email {
             self.threepids = [ThreePid(medium: .email, address: emailAddress)]
         }
+        self.logoutDevices = false
     }
 }
 
@@ -267,6 +281,8 @@ struct RegistrationHandler: EndpointHandler {
                 let requestBody = SynapseAdminPutUserRequestBody(email: email)
                 
                 let headers = HTTPHeaders([
+                    ("Accept", "application/json"),
+                    ("Content-Type", "application/json"),
                     ("Authorization", "Bearer: \(creds.accessToken)")
                 ])
 
