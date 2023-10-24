@@ -274,7 +274,7 @@ struct RegistrationHandler: EndpointHandler {
             if let creds = admin.creds,
                let email = await session.getData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email") as? String
             {
-                req.logger.debug("Calling Synapse admin API v2 to add email address")
+                req.logger.debug("Calling Synapse user admin API to add email address")
                 
                 let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v2/users/\(userId)")
                 
@@ -283,7 +283,7 @@ struct RegistrationHandler: EndpointHandler {
                 let headers = HTTPHeaders([
                     ("Accept", "application/json"),
                     ("Content-Type", "application/json"),
-                    ("Authorization", "Bearer: \(creds.accessToken)")
+                    ("Authorization", "Bearer \(creds.accessToken)")
                 ])
                 
                 req.logger.debug("Sending /users admin request with headers = \(headers)")

@@ -91,7 +91,7 @@ class SynapseAdminBackend: LifecycleHandler {
             let url = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_matrix/client/v3/logout")
             let headers = HTTPHeaders([
                 ("Accept", "application/json"),
-                ("Authorization", "Bearer: \(creds.accessToken)")
+                ("Authorization", "Bearer \(creds.accessToken)")
             ])
             app.logger.debug("logout() - Sending /logout request")
             let response = try await app.client.post(url, headers: headers)
