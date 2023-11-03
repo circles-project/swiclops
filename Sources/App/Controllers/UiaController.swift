@@ -444,7 +444,11 @@ struct UiaController: RouteCollection {
             
             let requiredFlows = try await _getRequiredFlows(flows: flows, for: userId, making: req)
 
-            // Check to see if we have any flows with no remaining required stages
+            // If there are no flows required for this request, we're done
+            if requiredFlows.isEmpty {
+                return
+            }
+            // If we do have some flows, check to see if we have any flows with no remaining required stages
             for flow in requiredFlows {
                 if flow.stages.isEmpty {
                     // Yay we're actually done.
