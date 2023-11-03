@@ -50,7 +50,7 @@ struct LoginHandler: EndpointHandler {
     func handle(req: Request) async throws -> Response {
         switch req.method {
         case .GET:
-            return try await handleGet(req: req) as! Response
+            return try await handleGet(req: req)
         case .POST:
             return try await handlePost(req: req)
         default:
@@ -58,23 +58,26 @@ struct LoginHandler: EndpointHandler {
         }
     }
     
-    func handleGet(req: Request) async throws -> ResponseEncodable {
+    func handleGet(req: Request) async throws -> Response {
+        req.logger.debug("LoginHandler handling GET request")
         
         struct LoginGetResponseUIA: Content {
             var flows: [UiaFlow]
         }
         let responseBody = LoginGetResponseUIA(flows: self.flows)
-        return responseBody
+        return try await responseBody.encodeResponse(for: req)
     }
     
     func handlePost(req: Request) async throws -> Response {
         
         if req.auth.get(MatrixUser.self) != nil {
+            req.logger.error("Can't /login if you already have an access_token")
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Can't /login if you already have an access_token")
         }
         
         guard let clientRequest = try? req.content.decode(LoginRequestBody.self)
         else {
+            req.logger.error("Couldn't parse /login request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /login request")
         }
         
