@@ -122,6 +122,14 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let sessionId = usernameRequest.auth.session
         let username = usernameRequest.auth.username.lowercased()
         
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
+        }
+        
+        let auth = uiaRequest.auth
+        let session = req.uia.connectSession(sessionId: auth.session)
+        let userEmailAddress = await session.getData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email") as? String
+        
         // Now we run our sanity checks on the requested username
         
         // Is it too short, or too long?
@@ -166,20 +174,30 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let existingUsername = try await Username.find(username, on: req.db)
         if let record = existingUsername {
             if record.status == .pending {
-                // cvw: FIXME: Let's loosen this up a bit
-                // * Allow a user with the same subscription identifier or the same email address to pick up where they left off and complete registration with the same username
+
                 if record.reason == sessionId {
-                    // There is already a pending registration but it's us
+                    // There is already a pending registration but it's the same user
                     req.logger.debug("User is already pending but it's for this UIA session so it's OK")
-                    return true
                 }
-                // OK there is (was?) a pending registration for some other session.  Is it an old one or is it current?
-                let now = Date()
-                // Here "current" means within the past n minutes
-                let timeoutMinutes = 10.0
-                if record.created!.distance(to: now) < timeoutMinutes * 60.0 {
-                    req.logger.debug("Username is already pending for someone else")
-                    throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
+                
+                // cvw: Let's loosen this up a bit
+                // * Allow a user with the same subscription identifier or the same email address to pick up where they left off and complete registration with the same username
+                else if let email = userEmailAddress {
+                    if record.reason == email {
+                        // There is already a pending registration but it's the same user
+                        req.logger.debug("User is already pending but it's for the same email address so it's OK")
+                    }
+                }
+                
+                else {
+                    // OK there is (was?) a pending registration for some other client.  Is it an old one or is it current?
+                    let now = Date()
+                    // Here "current" means within the past n minutes
+                    let timeoutMinutes = 10.0
+                    if record.created!.distance(to: now) < timeoutMinutes * 60.0 {
+                        req.logger.debug("Username is already pending for someone else")
+                        throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
+                    }
                 }
             } else {
                 // Otherwise the existence of this non-pending record in the database shows that the username is unavailable
@@ -188,10 +206,15 @@ struct UsernameEnrollAuthChecker: AuthChecker {
             }
         }
         
-        let pending = Username(username, status: .pending, reason: sessionId)
+        // Reserve this username in the database, doing our best to remember who reserved it
+        // * If we have an email address for the prospective user, we take that as the "reason" in the reservation
+        // * Otherwise we use the UIA session id because that's all we have
+        // Note that this will update the timestamp of the reservation in the database.  So if the user had already tried once 5 minutes ago, and now they are back a second time to complete their registration, the timer begins again starting right now.
+        let reason = userEmailAddress ?? sessionId
+        let pending = Username(username, status: .pending, reason: reason)
         try await pending.save(on: req.db)
-        
-        let session = req.uia.connectSession(sessionId: sessionId)
+
+        // Save the username in our session, for use by other UIA components
         await session.setData(for: "username", value: username)
         
         return true
