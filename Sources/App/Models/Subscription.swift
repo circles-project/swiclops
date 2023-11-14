@@ -25,7 +25,7 @@ final class Subscription: Model {
     @Field(key: "start_date")
     var startDate: Date
     
-    @Field(key: "end_date")
+    @OptionalField(key: "end_date")
     var endDate: Date?
     
     @Field(key: "level")
