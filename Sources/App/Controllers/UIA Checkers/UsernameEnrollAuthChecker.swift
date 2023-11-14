@@ -204,20 +204,25 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                         req.logger.warning("Username is already pending for someone else")
                         throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
                     }
+                    
+                    // Now we need to update the existing reservation and claim it for the current user
+                    try await Username.query(on: req.db)
+                                      .set(\.$status, to: .pending)
+                                      .set(\.$reason, to: userEmailAddress ?? sessionId)
+                                      .filter(\.$id == username)
+                                      .filter(\.$status == .pending)
+                                      .update()
                 }
                 
                 // If we are still here, then we have an existing pending reservation, and the same user has now come back to finish it.
                 // Update the record in the database
-                
-                // Ugh, Fluent sucks and crashes the whole app if we try to update an existing record.
-                // The idea was that we could update the timestamp to give the user a bit of extra time to complete their registration.
-                // But oh well - I guess we can just increase the first timeout and just never update the record after that.
-                /*
-                let reason = userEmailAddress ?? sessionId
-                let pending = Username(username, status: .pending, reason: reason)
-                req.logger.debug("Updating pending Username reservation with reason [\(reason)]")
-                try await pending.update(on: req.db)
-                */
+                try await Username.query(on: req.db)
+                                  .set(\.$status, to: .pending)
+                                  .set(\.$reason, to: userEmailAddress ?? sessionId)
+                                  .filter(\.$id == username)
+                                  .filter(\.$status == .pending)
+                                  .update()
+
             } else {
                 // Otherwise the existence of this non-pending record in the database shows that the username is unavailable
                 req.logger.warning("Username has already been claimed")
