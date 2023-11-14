@@ -194,33 +194,34 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                     // OK there is (was?) a pending registration for some other client.  Is it an old one or is it current?
                     let now = Date()
                     // Here "current" means within the past n minutes
-                    let timeoutMinutes = 10.0
+                    let timeoutSeconds = 600.0
+                    
                     guard let timestamp = record.updated ?? record.created
                     else {
                         req.logger.error("Username is pending but there is no timestamp")
                         throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error handling pending username reservation")
                     }
-                    if timestamp.distance(to: now) < timeoutMinutes * 60.0 {
-                        req.logger.warning("Username is already pending for someone else")
-                        throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
-                    }
                     
-                    // Now we need to update the existing reservation and claim it for the current user
-                    try await Username.query(on: req.db)
-                                      .set(\.$status, to: .pending)
-                                      .set(\.$reason, to: userEmailAddress ?? sessionId)
-                                      .filter(\.$id == username)
-                                      .filter(\.$status == .pending)
-                                      .update()
+                    let elapsedTime = timestamp.distance(to: now)
+                    req.logger.debug("Username has been pending for \(elapsedTime) of \(timeoutSeconds) seconds")
+                    
+                    if elapsedTime < timeoutSeconds {
+                        req.logger.warning("Username is already pending for someone else")
+                        throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutSeconds) seconds.")
+                    }
+                    req.logger.debug("Old reservation is now expired.  Ok to claiming username [\(username)] for the new user.")
+
                 }
                 
-                // If we are still here, then we have an existing pending reservation, and the same user has now come back to finish it.
+                // If we are still here, then we have an existing pending reservation, but the current user is allowed to override and overwrite it.
+                // Either because they created the old one, or the old one is expired.
                 // Update the record in the database
+                let reason = userEmailAddress ?? sessionId
                 try await Username.query(on: req.db)
                                   .set(\.$status, to: .pending)
-                                  .set(\.$reason, to: userEmailAddress ?? sessionId)
+                                  .set(\.$reason, to: reason)
                                   .filter(\.$id == username)
-                                  .filter(\.$status == .pending)
+                                  .filter(\.$status == .pending)  // Only modify an existing username if it's pending -- ie don't grab it from someone who has already completed registration
                                   .update()
 
             } else {
