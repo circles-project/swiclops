@@ -72,6 +72,7 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateUserEmailAddresses())
     app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
+    app.migrations.add(UniqueUsernames())
     
     // admin backend
     app.lifecycle.use(SynapseAdminBackend(sharedSecret: config.adminBackend.sharedSecret))

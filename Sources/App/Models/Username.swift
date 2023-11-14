@@ -25,7 +25,7 @@ final class Username: Model {
     @Field(key: "status")
     var status: Status
     
-    @Field(key: "reason")
+    @OptionalField(key: "reason")
     var reason: String?
     
     @Timestamp(key: "created", on: .create)
