@@ -213,11 +213,14 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         // Note that this will update the timestamp of the reservation in the database.  So if the user had already tried once 5 minutes ago, and now they are back a second time to complete their registration, the timer begins again starting right now.
         let reason = userEmailAddress ?? sessionId
         let pending = Username(username, status: .pending, reason: reason)
+        req.logger.debug("Saving pending Username reservation with reason [\(reason)]")
         try await pending.save(on: req.db)
 
         // Save the username in our session, for use by other UIA components
+        req.logger.debug("Saving username [\(username)] in our session")
         await session.setData(for: "username", value: username)
         
+        req.logger.debug("Done with username stage!")
         return true
     }
     
