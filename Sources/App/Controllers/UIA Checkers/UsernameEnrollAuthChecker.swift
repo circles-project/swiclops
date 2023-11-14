@@ -195,26 +195,38 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                     let now = Date()
                     // Here "current" means within the past n minutes
                     let timeoutMinutes = 10.0
-                    if record.created!.distance(to: now) < timeoutMinutes * 60.0 {
-                        req.logger.debug("Username is already pending for someone else")
+                    guard let timestamp = record.updated ?? record.created
+                    else {
+                        req.logger.error("Username is pending but there is no timestamp")
+                        throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error handling pending username reservation")
+                    }
+                    if timestamp.distance(to: now) < timeoutMinutes * 60.0 {
+                        req.logger.warning("Username is already pending for someone else")
                         throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
                     }
                 }
+                
+                // If we are still here, then we have an existing pending reservation, and the same user has now come back to finish it.
+                // Update the record in the database
+                let reason = userEmailAddress ?? sessionId
+                let pending = Username(username, status: .pending, reason: reason)
+                req.logger.debug("Updating pending Username reservation with reason [\(reason)]")
+                try await pending.update(on: req.db)
+                
             } else {
                 // Otherwise the existence of this non-pending record in the database shows that the username is unavailable
-                req.logger.debug("Username has already been claimed")
+                req.logger.warning("Username has already been claimed")
                 throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is not available")
             }
+            
+        } else {
+            // This username is new to us.
+            // Create a new pending reservation for this client, trying our best to remember who reserved it, in case they are unable to complete the registration in this session.
+            let reason = userEmailAddress ?? sessionId
+            let pending = Username(username, status: .pending, reason: reason)
+            req.logger.debug("Creating pending Username reservation with reason [\(reason)]")
+            try await pending.create(on: req.db)
         }
-        
-        // Reserve this username in the database, doing our best to remember who reserved it
-        // * If we have an email address for the prospective user, we take that as the "reason" in the reservation
-        // * Otherwise we use the UIA session id because that's all we have
-        // Note that this will update the timestamp of the reservation in the database.  So if the user had already tried once 5 minutes ago, and now they are back a second time to complete their registration, the timer begins again starting right now.
-        let reason = userEmailAddress ?? sessionId
-        let pending = Username(username, status: .pending, reason: reason)
-        req.logger.debug("Saving pending Username reservation with reason [\(reason)]")
-        try await pending.save(on: req.db)
 
         // Save the username in our session, for use by other UIA components
         req.logger.debug("Saving username [\(username)] in our session")
