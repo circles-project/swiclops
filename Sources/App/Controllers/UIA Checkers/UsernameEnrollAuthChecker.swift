@@ -174,49 +174,78 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let existingUsername = try await Username.find(username, on: req.db)
         if let record = existingUsername {
             if record.status == .pending {
+                req.logger.debug("Username [\(username)] is pending with reason [\(record.reason ?? "(none)")]")
 
                 if record.reason == sessionId {
                     // There is already a pending registration but it's the same user
-                    req.logger.debug("User is already pending but it's for this UIA session so it's OK")
+                    req.logger.debug("Username is already pending but it's for this UIA session so it's OK")
                 }
                 
                 // cvw: Let's loosen this up a bit
                 // * Allow a user with the same subscription identifier or the same email address to pick up where they left off and complete registration with the same username
-                else if let email = userEmailAddress {
-                    if record.reason == email {
-                        // There is already a pending registration but it's the same user
-                        req.logger.debug("User is already pending but it's for the same email address so it's OK")
-                    }
+                else if let email = userEmailAddress,
+                        record.reason == email
+                {
+                    // There is already a pending registration but it's the same user
+                    req.logger.debug("Username is already pending but it's for the same email address so it's OK")
                 }
                 
                 else {
+                    req.logger.debug("Username is already pending for someone else")
+                    
                     // OK there is (was?) a pending registration for some other client.  Is it an old one or is it current?
                     let now = Date()
                     // Here "current" means within the past n minutes
-                    let timeoutMinutes = 10.0
-                    if record.created!.distance(to: now) < timeoutMinutes * 60.0 {
-                        req.logger.debug("Username is already pending for someone else")
-                        throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutMinutes) minutes.")
+                    let timeoutSeconds = 600.0
+                    
+                    guard let timestamp = record.updated ?? record.created
+                    else {
+                        req.logger.error("Username is pending but there is no timestamp")
+                        throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error handling pending username reservation")
                     }
+                    
+                    let elapsedTime = timestamp.distance(to: now)
+                    req.logger.debug("Username has been pending for \(elapsedTime) of \(timeoutSeconds) seconds")
+                    
+                    if elapsedTime < timeoutSeconds {
+                        req.logger.warning("Username is already pending for someone else")
+                        throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is pending.  Try again in \(timeoutSeconds) seconds.")
+                    }
+                    req.logger.debug("Old reservation is now expired.  Ok to claiming username [\(username)] for the new user.")
+
                 }
+                
+                // If we are still here, then we have an existing pending reservation, but the current user is allowed to override and overwrite it.
+                // Either because they created the old one, or the old one is expired.
+                // Update the record in the database
+                let reason = userEmailAddress ?? sessionId
+                try await Username.query(on: req.db)
+                                  .set(\.$status, to: .pending)
+                                  .set(\.$reason, to: reason)
+                                  .filter(\.$id == username)
+                                  .filter(\.$status == .pending)  // Only modify an existing username if it's pending -- ie don't grab it from someone who has already completed registration
+                                  .update()
+
             } else {
                 // Otherwise the existence of this non-pending record in the database shows that the username is unavailable
-                req.logger.debug("Username has already been claimed")
+                req.logger.warning("Username has already been claimed")
                 throw MatrixError(status: .forbidden, errcode: .invalidUsername, error: "Username is not available")
             }
+            
+        } else {
+            // This username is new to us.
+            // Create a new pending reservation for this client, trying our best to remember who reserved it, in case they are unable to complete the registration in this session.
+            let reason = userEmailAddress ?? sessionId
+            let pending = Username(username, status: .pending, reason: reason)
+            req.logger.debug("Creating pending Username reservation with reason [\(reason)]")
+            try await pending.create(on: req.db)
         }
-        
-        // Reserve this username in the database, doing our best to remember who reserved it
-        // * If we have an email address for the prospective user, we take that as the "reason" in the reservation
-        // * Otherwise we use the UIA session id because that's all we have
-        // Note that this will update the timestamp of the reservation in the database.  So if the user had already tried once 5 minutes ago, and now they are back a second time to complete their registration, the timer begins again starting right now.
-        let reason = userEmailAddress ?? sessionId
-        let pending = Username(username, status: .pending, reason: reason)
-        try await pending.save(on: req.db)
 
         // Save the username in our session, for use by other UIA components
+        req.logger.debug("Saving username [\(username)] in our session")
         await session.setData(for: "username", value: username)
         
+        req.logger.debug("Done with username stage!")
         return true
     }
     
