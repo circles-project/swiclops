@@ -174,6 +174,7 @@ struct UsernameEnrollAuthChecker: AuthChecker {
         let existingUsername = try await Username.find(username, on: req.db)
         if let record = existingUsername {
             if record.status == .pending {
+                req.logger.debug("Username [\(username)] is pending with reason [\(record.reason ?? "(none)")]")
 
                 if record.reason == sessionId {
                     // There is already a pending registration but it's the same user
