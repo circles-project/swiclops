@@ -208,11 +208,16 @@ struct UsernameEnrollAuthChecker: AuthChecker {
                 
                 // If we are still here, then we have an existing pending reservation, and the same user has now come back to finish it.
                 // Update the record in the database
+                
+                // Ugh, Fluent sucks and crashes the whole app if we try to update an existing record.
+                // The idea was that we could update the timestamp to give the user a bit of extra time to complete their registration.
+                // But oh well - I guess we can just increase the first timeout and just never update the record after that.
+                /*
                 let reason = userEmailAddress ?? sessionId
                 let pending = Username(username, status: .pending, reason: reason)
                 req.logger.debug("Updating pending Username reservation with reason [\(reason)]")
                 try await pending.update(on: req.db)
-                
+                */
             } else {
                 // Otherwise the existence of this non-pending record in the database shows that the username is unavailable
                 req.logger.warning("Username has already been claimed")
