@@ -178,19 +178,21 @@ struct UsernameEnrollAuthChecker: AuthChecker {
 
                 if record.reason == sessionId {
                     // There is already a pending registration but it's the same user
-                    req.logger.debug("User is already pending but it's for this UIA session so it's OK")
+                    req.logger.debug("Username is already pending but it's for this UIA session so it's OK")
                 }
                 
                 // cvw: Let's loosen this up a bit
                 // * Allow a user with the same subscription identifier or the same email address to pick up where they left off and complete registration with the same username
-                else if let email = userEmailAddress {
-                    if record.reason == email {
-                        // There is already a pending registration but it's the same user
-                        req.logger.debug("User is already pending but it's for the same email address so it's OK")
-                    }
+                else if let email = userEmailAddress,
+                        record.reason == email
+                {
+                    // There is already a pending registration but it's the same user
+                    req.logger.debug("Username is already pending but it's for the same email address so it's OK")
                 }
                 
                 else {
+                    req.logger.debug("Username is already pending for someone else")
+                    
                     // OK there is (was?) a pending registration for some other client.  Is it an old one or is it current?
                     let now = Date()
                     // Here "current" means within the past n minutes
