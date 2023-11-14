@@ -72,7 +72,7 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreateUserEmailAddresses())
     app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
-    app.migrations.add(UniqueUsernames())
+    // app.migrations.add(UniqueUsernames())  // Apparently SQLite sucks and can't add a unique constraint to an existing table.  bah.
     
     // admin backend
     app.lifecycle.use(SynapseAdminBackend(sharedSecret: config.adminBackend.sharedSecret))
