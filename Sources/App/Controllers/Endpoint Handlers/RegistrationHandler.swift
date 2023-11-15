@@ -181,7 +181,7 @@ struct RegistrationHandler: EndpointHandler {
             req.logger.error("Couldn't find username")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find username")
         }
-        req.logger.debug("RegistrationHandler: username = [\(username)")
+        req.logger.debug("RegistrationHandler: username = \(username)")
         
         
         // We don't really handle /register requests all by ourselves
@@ -222,6 +222,13 @@ struct RegistrationHandler: EndpointHandler {
         // Build the shared-secret request from the normal request and the crypto material
         let secret = config.uia.registration.sharedSecret
         let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: secret)
+        if let requestingRefreshToken = proxyRequestBody.refreshToken,
+           requestingRefreshToken == true
+        {
+            req.logger.debug("RegistrationHandler: Requesting refresh token for new user \(username)")
+        } else {
+            req.logger.debug("RegistrationHandler: Not requesting refresh token for new user \(username)")
+        }
             
         // We have to use the special admin API, not the normal client-server endpoint
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
