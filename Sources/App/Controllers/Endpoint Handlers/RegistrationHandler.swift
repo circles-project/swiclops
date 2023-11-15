@@ -232,14 +232,7 @@ struct RegistrationHandler: EndpointHandler {
         // If the response was successful, then the user was just registered on the homeserver
         if proxyResponse.status == .ok {
             // We need to find out the user_id for all of our post-enroll callbacks
-            struct MinimalRegisterResponse: Content {
-                var userId: String
-                
-                enum CodingKeys: String, CodingKey {
-                    case userId = "user_id"
-                }
-            }
-            guard let minimalResponse = try? proxyResponse.content.decode(MinimalRegisterResponse.self)
+            guard let responseBody = try? proxyResponse.content.decode(RegisterResponseBody.self)
             else {
                 req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
                 
@@ -251,8 +244,8 @@ struct RegistrationHandler: EndpointHandler {
                 
                 throw Abort(.internalServerError)
             }
-            let userId = minimalResponse.userId
-            req.logger.debug("RegistrationHandler: The new user's id is [\(userId)]")
+            let userId = responseBody.userId
+            req.logger.debug("RegistrationHandler: Registered new user with user id = \(userId)  access_token = \(responseBody.accessToken ?? "(none)")  refresh_token = \(responseBody.refreshToken ?? "(none)")")
             
             // Now we need to save the user id in the UIA session; This is also for the post-enroll processing
             guard let uiaResponse = try? req.content.decode(UiaRequest.self) else {
@@ -290,14 +283,14 @@ struct RegistrationHandler: EndpointHandler {
 
                 let userAdminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
                 
-                if userAdminResponse.status.code == 201 {
+                if userAdminResponse.status.code == 200 {
                     req.logger.debug("Added email address \(email) for user \(userId)")
                 } else {
                     req.logger.error("Failed to add email address - got HTTP \(userAdminResponse.status.code) \(userAdminResponse.status.reasonPhrase)")
                 }
                 
             } else {
-                req.logger.debug("Not adding an email adddress for this user")
+                req.logger.debug("Not adding an email adddress for new user \(userId)")
             }
             
         }
