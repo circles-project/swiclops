@@ -11,11 +11,10 @@ import AnyCodable
 
 import AppStoreServerLibrary
 
-let SUBSCRIPTION_PROVIDER_APPLE = "apple_storekit_v2"
-
 struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple_storekit_v2"
-    
+    let PROVIDER_APPLE_STOREKIT2 = "apple_storekit_v2"
+
     var config: Config
     struct Config: Codable {
         struct AppInfo: Codable {
@@ -33,7 +32,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         
         let secret: String
         let environment: AppStoreServerLibrary.Environment
-        
+                
         var bundleIds: [String] {
             Array(self.apps.keys)
         }
@@ -47,12 +46,11 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         }
     }
     
+    var certs: [Foundation.Data]
+    var logger: Vapor.Logger
+    
     // See https://developer.apple.com/videos/play/wwdc2021/10174
     // For StoreKit2 we need
-    // * Latest transaction ID if this is a new purchase -- But maybe not present if we already had access via family sharing etc
-    // * Original transaction ID
-    // * UUID for the user (aka "app account token")
-    // * Product ID
     // ...
     // * Or maybe just send us the new signed transaction??? -- "signed transactions" are the new name for StoreKit2 app receipts
     //   - Client can grab the JSON representation of the transaction to send to us
@@ -102,9 +100,35 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     }
     
     
-    
-    init(config: Config) {
+    init(config: Config, app: Application) {
         self.config = config
+        
+        let logger = app.logger
+        
+        let certFilenames = [
+            "AppleIncRootCertificate",
+            "AppleComputerRootCertificate",
+            "AppleRootCA-G2",
+            "AppleRootCA-G3",
+        ]
+        
+        self.certs = certFilenames.compactMap {
+            guard let url = Bundle.main.url(forResource: $0, withExtension: ".cer", subdirectory: "Certs")
+            else {
+                logger.error("Failed to get bundle URL for \($0)")
+                return nil
+            }
+            
+            guard let data = try? Data(contentsOf: url)
+            else {
+                logger.error("Failed to load data for \($0) from \(url)")
+                return nil
+            }
+            
+            return data
+        }
+        
+        self.logger = logger
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -138,7 +162,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Invalid app Apple ID")
         }
                 
-        guard let verifier = try? SignedDataVerifier(rootCertificates: [],
+        guard let verifier = try? SignedDataVerifier(rootCertificates: self.certs,
                                                      bundleId: auth.bundleId,
                                                      appAppleId: auth.appAppleId,
                                                      environment: config.environment,
@@ -289,7 +313,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let appAccountToken = await session.getData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".app_account_token") as? UUID
                 
         let subscription = InAppSubscription(userId: userId,
-                                             provider: SUBSCRIPTION_PROVIDER_APPLE,
+                                             provider: PROVIDER_APPLE_STOREKIT2,
                                              productId: productId,
                                              transactionId: transactionId,
                                              originalTransactionId: originalTransactionId,
