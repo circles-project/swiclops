@@ -150,6 +150,11 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
+        guard let userId = await session.getData(for: "user_id") as? String else {
+            req.logger.debug("Could not determine user id")
+            throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
+        }
+        
         guard let app = config.apps[auth.bundleId]
         else {
             req.logger.error("Invalid bundle id")
@@ -187,7 +192,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             // Check that the transaction is for one of our auto-renewable subscriptions
             
             guard let productId = payload.productId,
-                  config.productIds.contains(productId)
+                  let product = config.products[productId]
             else {
                 req.logger.error("Invalid product id")
                 throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "Invalid product id")
@@ -232,6 +237,62 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             else {
                 req.logger.error("No original transaction id")
                 throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "No original transaction id")
+            }
+            
+            // We also need to know the latest transaction id, to ensure that it hasn't already been used
+            
+            guard let transactionId = payload.transactionId
+            else {
+                req.logger.error("No transaction id")
+                throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "No transaction id")
+            }
+
+            // Check that the subscription hasn't already been used
+            
+            if product.shareable {
+            
+                // If this is a family-shareable subscription, then we must check that the family hasn't already exceeded their number of accounts
+
+                let FAMILY_SHARING_MAX_ACCOUNTS = 6
+                
+                let users = try await InAppSubscription
+                                            .query(on: req.db)
+                                            .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
+                                            .filter(\.$originalTransactionId == originalTransactionId)  // Match on the original transaction id
+                                            .filter(\.$startDate < now)
+                                            .filter(\.$endDate > now)
+                                            .unique()
+                                            .all(\.$userId)
+                
+                guard users.count <= FAMILY_SHARING_MAX_ACCOUNTS
+                else {
+                    req.logger.error("Family sharing is already full for this subscription")
+                    throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Family sharing is already full")
+                }
+            }
+            else {
+                
+                // If this is NOT a family-shareable subscription, then we must check that it hasn't been used already
+                
+                let otherUserIds = try await InAppSubscription
+                                                .query(on: req.db)
+                                                .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
+                                                .filter(\.$transactionId == transactionId)        // Match on the new id for this transaction
+                                                .filter(\.$startDate < now)
+                                                .filter(\.$endDate > now)
+                                                .unique()
+                                                .all(\.$userId)
+                
+                // We should only ever get one result here
+                // However, try to handle some amount of craziness
+                for otherUserId in otherUserIds {
+                    guard otherUserId == userId
+                    else {
+                        req.logger.error("Non-shareable subscription is already in use by another user")
+                        throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Subscription purchase is already in use")
+                    }
+                }
+
             }
             
             // OK the subscription looks like it's good
