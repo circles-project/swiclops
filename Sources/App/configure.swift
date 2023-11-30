@@ -68,7 +68,7 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreatePasswordHashes())
     app.migrations.add(CreatePendingTokenRegistrations())
     app.migrations.add(CreateRegistrationTokens())
-    app.migrations.add(CreateSubscriptions())
+    app.migrations.add(CreateInAppSubscriptions())
     app.migrations.add(CreateUserEmailAddresses())
     app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
