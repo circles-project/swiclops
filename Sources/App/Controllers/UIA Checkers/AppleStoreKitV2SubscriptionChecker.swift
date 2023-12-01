@@ -81,7 +81,6 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             var type: String
             var session: String
             
-            var appAppleId: Int64
             var bundleId: String
             var productId: String
             var signedTransaction: String
@@ -89,7 +88,6 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             enum CodingKeys: String, CodingKey {
                 case type
                 case session
-                case appAppleId = "app_apple_id"
                 case bundleId = "bundle_id"
                 case productId = "product_id"
                 case signedTransaction = "signed_transaction"
@@ -160,16 +158,10 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             req.logger.error("Invalid bundle id")
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Invalid bundle id")
         }
-        
-        guard app.appleId == auth.appAppleId
-        else {
-            req.logger.error("Invalid app Apple id")
-            throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Invalid app Apple ID")
-        }
                 
         guard let verifier = try? SignedDataVerifier(rootCertificates: self.certs,
                                                      bundleId: auth.bundleId,
-                                                     appAppleId: auth.appAppleId,
+                                                     appAppleId: app.appleId,
                                                      environment: config.environment,
                                                      enableOnlineChecks: true)
         else {
