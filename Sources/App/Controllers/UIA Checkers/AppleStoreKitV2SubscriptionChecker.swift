@@ -32,6 +32,17 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         
         let secret: String
         let environment: AppStoreServerLibrary.Environment
+        
+        let gracePeriodDays: UInt?
+        
+        enum CodingKeys: String, CodingKey {
+            case apps
+            case products
+            case secret
+            case environment
+            case gracePeriodDays = "grace_period_days"
+        }
+        
                 
         var bundleIds: [String] {
             Array(self.apps.keys)
@@ -199,12 +210,19 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             // Check that the subscription is not expired or revoked or upgraded
             
             let now = Date()
-                        
+
+            let graceDays = config.gracePeriodDays ?? 0
+            let gracePeriod = TimeInterval(24*60*60*graceDays)
+            
             guard let expirationDate = payload.expiresDate,
-                  expirationDate > now
+                  expirationDate + gracePeriod > now
             else {
                 req.logger.error("Subscription is expired")
                 throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "Subscription has expired")
+            }
+            
+            if expirationDate > now {
+                req.logger.warning("Subscription is in the grace period but we allow this")
             }
             
             if let revocationDate = payload.revocationDate {
