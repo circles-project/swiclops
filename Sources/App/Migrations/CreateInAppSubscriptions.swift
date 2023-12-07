@@ -12,7 +12,6 @@ struct CreateInAppSubscriptions: AsyncMigration {
         database.logger.debug("Creating table subscriptions")
         try await database.schema("in_app_subscriptions")
             .id()
-            .field("subscription_id", .string, .identifier(auto: false))
             .field("user_id", .string, .required)
             .field("provider", .string, .required)
             .field("product_id", .string, .required)
