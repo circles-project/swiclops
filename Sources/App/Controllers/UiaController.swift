@@ -30,7 +30,7 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var apple: AppleStoreKitV2SubscriptionChecker.Config?
+        var appStore: AppleStoreKitV2SubscriptionChecker.Config?
         var bsspeke: BSSpekeAuthChecker.Config
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
@@ -55,7 +55,7 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
-            case apple
+            case appStore = "app_store"
             case bsspeke
             case email
             case terms
