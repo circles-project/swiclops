@@ -20,25 +20,35 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     struct Config: Codable {
         struct AppInfo: Codable {
             var appleId: Int64
+            var bundleId: String
             var name: String
             var secret: String?
             
             enum CodingKeys: String, CodingKey {
                 case appleId = "apple_id"
+                case bundleId = "bundle_id"
                 case name
                 case secret
             }
         }
-        let apps: [String: AppInfo]
+        let apps: [AppInfo]
         
         struct ProductInfo: Codable {
             var level: Int
+            var productId: String
             var shareable: Bool
             var quota: UInt64
+            
+            enum CodingKeys: String, CodingKey {
+                case level
+                case productId = "product_id"
+                case shareable
+                case quota
+            }
         }
-        let products: [String: ProductInfo]
+        let products: [ProductInfo]
         
-        let secret: String
+        let secret: String?
         let environment: AppStoreServerLibrary.Environment
         
         let gracePeriodDays: UInt?
@@ -53,15 +63,15 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         
                 
         var bundleIds: [String] {
-            Array(self.apps.keys)
+            self.apps.map { $0.bundleId }
         }
         
         var appAppleIds: [Int64] {
-            self.apps.values.map { $0.appleId }
+            self.apps.map { $0.appleId }
         }
         
         var productIds: [String] {
-            Array(self.products.keys)
+            self.products.map { $0.productId }
         }
     }
     
@@ -178,7 +188,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
         }
         
-        guard let app = config.apps[auth.bundleId]
+        guard let app = config.apps.first(where: { $0.bundleId == auth.bundleId })
         else {
             req.logger.error("Invalid bundle id")
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Invalid bundle id")
@@ -209,7 +219,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             // Check that the transaction is for one of our auto-renewable subscriptions
             
             guard let productId = payload.productId,
-                  let product = config.products[productId]
+                  let product = config.products.first(where: {$0.productId == productId })
             else {
                 req.logger.error("Invalid product id")
                 throw MatrixError(status: .unauthorized, errcode: .unauthorized, error: "Invalid product id")
