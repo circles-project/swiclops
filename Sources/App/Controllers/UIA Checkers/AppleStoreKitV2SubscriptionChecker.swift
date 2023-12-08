@@ -198,6 +198,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             req.logger.error("Failed to initialize verifier")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to initialize verifier")
         }
+        req.logger.debug("Initialized verifier with \(self.certs.count) certs")
 
         req.logger.debug("Attempting to verify and decode transaction")
         let verificationResult = await verifier.verifyAndDecodeTransaction(signedTransaction: auth.signedTransaction)
