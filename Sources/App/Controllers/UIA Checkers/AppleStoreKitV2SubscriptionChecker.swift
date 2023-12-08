@@ -345,12 +345,16 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             
             // Extract any other relevant information out of the payload and save it in our UIA session
             
+            await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".bundle_id", value: auth.bundleId)
+
             await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".product_id", value: productId)
             
             let startDate = payload.originalPurchaseDate ?? payload.purchaseDate ?? now
             await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".start_date", value: startDate)
             
             await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".expiration_date", value: expirationDate)
+            
+            await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".transaction_id", value: transactionId)
             
             await session.setData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".original_transaction_id", value: originalTransactionId)
             
@@ -379,6 +383,12 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
+        guard let bundleId = await session.getData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".bundle_id") as? String
+        else {
+            req.logger.error("No bundle id")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No bundle id for new subscription")
+        }
+        
         guard let productId = await session.getData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".product_id") as? String
         else {
             req.logger.error("No product id")
@@ -403,12 +413,6 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         else {
             req.logger.error("No original transaction id")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No original transaction id for new subscription")
-        }
-        
-        guard let bundleId = await session.getData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".bundle_id") as? String
-        else {
-            req.logger.error("No bundle id")
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No bundle id for new subscription")
         }
         
         guard let familyShared = await session.getData(for: AUTH_TYPE_APPSTORE_SUBSCRIPTION+".family_shared") as? Bool
