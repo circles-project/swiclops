@@ -101,7 +101,7 @@ struct UiaController: RouteCollection {
             authCheckerModules.append(TermsAuthChecker(app: app, config: termsConfig))
         }
         
-        if let appleConfig = config.apple {
+        if let appleConfig = config.appStore {
             authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(config: appleConfig, app: app))
         }
         

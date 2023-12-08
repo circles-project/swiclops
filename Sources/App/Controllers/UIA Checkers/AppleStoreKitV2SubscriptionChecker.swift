@@ -15,11 +15,19 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple_storekit_v2"
     let PROVIDER_APPLE_STOREKIT2 = "apple_storekit_v2"
 
+    // MARK: config
     var config: Config
     struct Config: Codable {
         struct AppInfo: Codable {
             var appleId: Int64
             var name: String
+            var secret: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case appleId = "apple_id"
+                case name
+                case secret
+            }
         }
         let apps: [String: AppInfo]
         
@@ -87,6 +95,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     //     * offerType                     // promotional, intro, ...
     //     * offerIdentifier
     
+    // MARK: Request struct
     struct StoreKitV2Request: Content {
         struct AuthDict: UiaAuthDict {
             var type: String
@@ -108,6 +117,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         var auth: AuthDict
     }
     
+    // MARK: init
     
     init(config: Config, app: Application) {
         self.config = config
@@ -144,11 +154,15 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         return [AUTH_TYPE_APPSTORE_SUBSCRIPTION]
     }
     
+    // MARK: getParams
+    
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
         return [
             "product_ids": AnyCodable(self.config.productIds)
         ]
     }
+    
+    // MARK: check
     
     func check(req: Request, authType: String) async throws -> Bool {
         guard let storekitRequest = try? req.content.decode(StoreKitV2Request.self)
