@@ -183,11 +183,6 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
-        guard let userId = await session.getData(for: "user_id") as? String else {
-            req.logger.debug("Could not determine user id")
-            throw MatrixError(status: .internalServerError, errcode: .forbidden, error: "Could not determine user id")
-        }
-        
         guard let app = config.apps.first(where: { $0.bundleId == auth.bundleId })
         else {
             req.logger.error("Invalid bundle id")
@@ -289,7 +284,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
 
                 let FAMILY_SHARING_MAX_ACCOUNTS = 6
                 
-                let users = try await InAppSubscription
+                let familyUserIds = try await InAppSubscription
                                             .query(on: req.db)
                                             .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
                                             .filter(\.$originalTransactionId == originalTransactionId)  // Match on the original transaction id
@@ -298,10 +293,22 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
                                             .unique()
                                             .all(\.$userId)
                 
-                guard users.count <= FAMILY_SHARING_MAX_ACCOUNTS
-                else {
-                    req.logger.error("Family sharing is already full for this subscription")
-                    throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Family sharing is already full")
+                if let userId = await session.getData(for: "user_id") as? String {
+                    // This is a family member renewing their subscription
+                    
+                    guard familyUserIds.count < FAMILY_SHARING_MAX_ACCOUNTS || (familyUserIds.count == FAMILY_SHARING_MAX_ACCOUNTS && familyUserIds.contains(userId))
+                    else {
+                        req.logger.error("Family sharing is already full for this subscription")
+                        throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Family sharing is already full")
+                    }
+                } else {
+                    // This is a family member registering a new account
+                    
+                    guard familyUserIds.count < FAMILY_SHARING_MAX_ACCOUNTS
+                    else {
+                        req.logger.error("Family sharing is already full for this subscription")
+                        throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Family sharing is already full")
+                    }
                 }
             }
             else {
@@ -311,22 +318,32 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
                 let otherUserIds = try await InAppSubscription
                                                 .query(on: req.db)
                                                 .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
-                                                .filter(\.$transactionId == transactionId)        // Match on the new id for this transaction
-                                                .filter(\.$startDate < now)
-                                                .filter(\.$endDate > now)
+                                                .filter(\.$originalTransactionId == originalTransactionId)  // Match on the original transaction id
                                                 .unique()
                                                 .all(\.$userId)
                 
-                // We should only ever get one result here
-                // However, try to handle some amount of craziness
-                for otherUserId in otherUserIds {
-                    guard otherUserId == userId
+                if let userId = await session.getData(for: "user_id") as? String {
+                    // This is an existing user renewing their subscription
+                    
+                    // We should only ever get one result here
+                    // However, try to handle some amount of craziness
+                    for otherUserId in otherUserIds {
+                        guard otherUserId == userId
+                        else {
+                            req.logger.error("Non-shareable subscription is already in use by another user")
+                            throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Subscription purchase is already in use")
+                        }
+                    }
+                } else {
+                    // The client is trying to register a new account
+                    
+                    // Make sure that no other user ids have been registered on this subscription
+                    guard otherUserIds.isEmpty
                     else {
-                        req.logger.error("Non-shareable subscription is already in use by another user")
+                        req.logger.error("Can't register a new account - This subscription is already in use")
                         throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Subscription purchase is already in use")
                     }
                 }
-
             }
             
             // OK the subscription looks like it's good
@@ -438,10 +455,22 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
-        // FIXME: Pull the subscription information out of the UIA session and save it to the database
-        //   * Product id
-        //   * Expiration date
-        throw Abort(.notImplemented)
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self)
+        else {
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
+        }
+        let auth = uiaRequest.auth
+        let sessionId = auth.session
+        let session = req.uia.connectSession(sessionId: sessionId)
+        
+        guard let userId = await session.getData(for: "user_id") as? String
+        else {
+            req.logger.error("Couldn't get a user id")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find user id")
+        }
+        
+        try await createSubscription(for: userId, making: req)
+
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
