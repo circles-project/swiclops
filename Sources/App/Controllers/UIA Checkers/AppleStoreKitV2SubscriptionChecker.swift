@@ -146,6 +146,8 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
                 return nil
             }
             
+            logger.debug("Loaded \(data.count) bytes of certificate data from \(url)")
+            
             return data
         }
         

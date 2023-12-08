@@ -18,7 +18,8 @@ let package = Package(
         .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.3.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "3.0.0"),
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
-        .package(url: "https://github.com/apple/app-store-server-library-swift.git", .upToNextMinor(from: "0.1.0")),
+        //.package(url: "https://github.com/apple/app-store-server-library-swift.git", .upToNextMinor(from: "0.1.0")),
+        .package(url: "https://github.com/cvwright/app-store-server-library-swift.git", branch: "cvwright/debug"),
     ],
     targets: [
         .target(
