@@ -53,12 +53,15 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         
         let gracePeriodDays: UInt?
         
+        let certs: [String]
+
         enum CodingKeys: String, CodingKey {
             case apps
             case products
             case secret
             case environment
             case gracePeriodDays = "grace_period_days"
+            case certs
         }
         
                 
@@ -134,19 +137,8 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         
         let logger = app.logger
         
-        let certFilenames = [
-            "AppleIncRootCertificate",
-            "AppleComputerRootCertificate",
-            "AppleRootCA-G2",
-            "AppleRootCA-G3",
-        ]
-        
-        self.certs = certFilenames.compactMap {
-            guard let url = Bundle.main.url(forResource: $0, withExtension: ".cer", subdirectory: "Certs")
-            else {
-                logger.error("Failed to get bundle URL for \($0)")
-                return nil
-            }
+        self.certs = config.certs.compactMap {
+            let url = URL(fileURLWithPath: $0)
             
             guard let data = try? Data(contentsOf: url)
             else {
