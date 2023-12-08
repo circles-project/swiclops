@@ -38,7 +38,7 @@ public func configure(_ app: Application) throws {
     // Enable compression in the HTTP client
     app.http.client.configuration.decompression = .enabled(limit: .ratio(100))
 
-    guard let config = try? _loadConfiguration() else {
+    guard let config = try? loadConfiguration(for: app) else {
         app.logger.error("No config file found")
         throw Abort(.internalServerError)
     }
@@ -94,12 +94,22 @@ public func configure(_ app: Application) throws {
     app.commands.use(LoadReservedUsernamesCommand(), as: "load-reserved-usernames")
 }
 
-private func _loadConfiguration() throws -> AppConfig {
+private func loadConfiguration(for app: Application) throws -> AppConfig {
+    app.logger.debug("Attempting to loading system-wide Swiclops configuration")
     if let systemConfig = try? AppConfig(filename: "/etc/swiclops/swiclops.yml") {
+        app.logger.debug("Successfully loaded system-wide configuration")
         return systemConfig
     }
-    let localConfig = try AppConfig(filename: "swiclops.yml")
-    return localConfig
+    app.logger.debug("Failed to load system-wide Swiclops configuration")
+    
+    app.logger.debug("Attempting to load local Swiclops config")
+    if let localConfig = try? AppConfig(filename: "swiclops.yml") {
+        app.logger.debug("Successfully loaded local config")
+        return localConfig
+    }
+    
+    app.logger.error("Failed to load any Swiclops configuration")
+    throw Abort(.internalServerError)
 }
 
 
