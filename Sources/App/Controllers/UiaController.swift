@@ -30,6 +30,7 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
+        var appStore: AppleStoreKitV2SubscriptionChecker.Config?
         var bsspeke: BSSpekeAuthChecker.Config
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
@@ -54,6 +55,7 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
+            case appStore = "app_store"
             case bsspeke
             case email
             case terms
@@ -95,8 +97,12 @@ struct UiaController: RouteCollection {
 
         ]
         
-        if let terms = config.terms {
-            authCheckerModules.append(TermsAuthChecker(app: app, config: terms))
+        if let termsConfig = config.terms {
+            authCheckerModules.append(TermsAuthChecker(app: app, config: termsConfig))
+        }
+        
+        if let appleConfig = config.appStore {
+            authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(config: appleConfig, app: app))
         }
         
         self.checkers = [:]

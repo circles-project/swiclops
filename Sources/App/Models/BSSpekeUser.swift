@@ -23,31 +23,6 @@ final class BSSpekeUser: Model {
     
     @Field(key: "v")
     var V: String
-
-    /*
-    final class PHF: Fields {
-        @Field(key: "name")
-        var name: String
-        
-        @Field(key: "iterations")
-        var iterations: UInt
-        
-        @Field(key: "blocks")
-        var blocks: UInt
-        
-        init() {
-            self.name = "argon2i"
-            self.blocks = 100000
-            self.iterations = 3
-        }
-        
-        init(name: String, blocks: UInt, iterations: UInt) {
-            self.name = name
-            self.blocks = blocks
-            self.iterations = iterations
-        }
-    }
-    */
     
     @Field(key: "phf")
     var phf: PHF
