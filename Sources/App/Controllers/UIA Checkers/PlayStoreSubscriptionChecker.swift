@@ -230,11 +230,11 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
                                  provider: PROVIDER_GOOGLE_PLAY,
                                  productId: subscriptionId,
                                  transactionId: orderId,
-                                 originalTransactionId: <#T##String#>,
+                                 originalTransactionId: "n/a", // FIXME: Decide what to do about this
                                  bundleId: packageId,
                                  startDate: startDate,
                                  endDate: endDate,
-                                 familyShared: <#T##Bool#>)
+                                 familyShared: false) // FIXME: Figure out how to tell if a Play Store subscription is family shared
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
