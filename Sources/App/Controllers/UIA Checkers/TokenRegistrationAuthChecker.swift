@@ -12,6 +12,8 @@ import AnyCodable
 struct TokenRegistrationAuthChecker: AuthChecker {
     let AUTH_TYPES = ["org.matrix.msc3231.login.registration_token", "m.login.registration_token"]
     
+    let PROVIDER_REGISTRATION_TOKENS = "registration_tokens"
+    
     struct TokenRegistrationUiaRequest: Content {
         struct AuthDict: UiaAuthDict {
             var type: String
@@ -59,9 +61,9 @@ struct TokenRegistrationAuthChecker: AuthChecker {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Token is expired")
         }
         
-        let numExistingRegistrations = try await Subscription.query(on: req.db)
-            .filter(\.$provider == "token")
-            .filter(\.$identifier == token)
+        let numExistingRegistrations = try await InAppSubscription.query(on: req.db)
+            .filter(\.$provider == PROVIDER_REGISTRATION_TOKENS)
+            .filter(\.$productId == token)
             .count()
         
         if tokenRecord.slots <= numExistingRegistrations {
@@ -121,12 +123,18 @@ struct TokenRegistrationAuthChecker: AuthChecker {
             throw Abort(.internalServerError)
         }
         
-        let mySubscription = Subscription(userId: userId,
-                                          provider: "token",
-                                          identifier: token,
-                                          startDate: Date(),
-                                          endDate: nil,
-                                          level: "standard"
+        // Yo dawg, we heard you liked tokens...
+        // Obviously this isn't a real in-app purchase
+        // Just use the token itself for any identifiers that we need
+        let mySubscription = InAppSubscription(userId: userId,
+                                               provider: PROVIDER_REGISTRATION_TOKENS,
+                                               productId: token,
+                                               transactionId: token,
+                                               originalTransactionId: token,
+                                               bundleId: "registration_token",
+                                               startDate: Date(),
+                                               endDate: nil,
+                                               familyShared: false
         )
         
         try await req.db.transaction { transaction in

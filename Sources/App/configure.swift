@@ -38,10 +38,13 @@ public func configure(_ app: Application) throws {
     // Enable compression in the HTTP client
     app.http.client.configuration.decompression = .enabled(limit: .ratio(100))
 
-    guard let config = try? _loadConfiguration() else {
+    guard let config = try? loadConfiguration(for: app) else {
         app.logger.error("No config file found")
         throw Abort(.internalServerError)
     }
+    
+    // Save the application config in the app's own storage, for access later at runtime
+    app.config = config
     
     // database
     switch config.database {
@@ -65,16 +68,20 @@ public func configure(_ app: Application) throws {
     app.migrations.add(CreatePasswordHashes())
     app.migrations.add(CreatePendingTokenRegistrations())
     app.migrations.add(CreateRegistrationTokens())
-    app.migrations.add(CreateSubscriptions())
+    app.migrations.add(CreateInAppSubscriptions())
     app.migrations.add(CreateUserEmailAddresses())
     app.migrations.add(CreateBadWords())
     app.migrations.add(CreateUsernames())
+    // app.migrations.add(UniqueUsernames())  // Apparently SQLite sucks and can't add a unique constraint to an existing table.  bah.
+    
+    // admin backend
+    app.lifecycle.use(SynapseAdminBackend(sharedSecret: config.adminBackend.sharedSecret))
     
     // routes
     app.logger.info("Configuring routes")
     let uiaController = try UiaController(app: app, config: config.uia, matrixConfig: config.matrix)
     try app.register(collection: uiaController)
-    let adminController = AdminApiController(app: app, config: config.admin, matrixConfig: config.matrix)
+    let adminController = AdminApiController(app: app, matrixConfig: config.matrix)
     try app.register(collection: adminController)
     //try routes(app)
     
@@ -87,10 +94,22 @@ public func configure(_ app: Application) throws {
     app.commands.use(LoadReservedUsernamesCommand(), as: "load-reserved-usernames")
 }
 
-private func _loadConfiguration() throws -> AppConfig {
+private func loadConfiguration(for app: Application) throws -> AppConfig {
+    app.logger.debug("Attempting to loading system-wide Swiclops configuration")
     if let systemConfig = try? AppConfig(filename: "/etc/swiclops/swiclops.yml") {
+        app.logger.debug("Successfully loaded system-wide configuration")
         return systemConfig
     }
-    let localConfig = try AppConfig(filename: "swiclops.yml")
-    return localConfig
+    app.logger.debug("Failed to load system-wide Swiclops configuration")
+    
+    app.logger.debug("Attempting to load local Swiclops config")
+    if let localConfig = try? AppConfig(filename: "swiclops.yml") {
+        app.logger.debug("Successfully loaded local config")
+        return localConfig
+    }
+    
+    app.logger.error("Failed to load any Swiclops configuration")
+    throw Abort(.internalServerError)
 }
+
+

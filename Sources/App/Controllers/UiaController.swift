@@ -30,15 +30,20 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var backendAuth: BackendAuthConfig
-        //var domain: String
-        //var homeserver: URL
-        var registration: RegistrationHandler.Config
+        var appStore: AppleStoreKitV2SubscriptionChecker.Config?
         var bsspeke: BSSpekeAuthChecker.Config
-        //var bsspekeOprfSecret: String
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
         var googlePlay: PlayStoreSubscriptionChecker.Config?
+        
+        var registration: RegistrationConfig
+        struct RegistrationConfig: Codable {
+            var sharedSecret: String
+            
+            enum CodingKeys: String, CodingKey {
+                case sharedSecret = "shared_secret"
+            }
+        }
         
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
@@ -51,14 +56,11 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
-            case backendAuth = "backend_auth"
-            //case bsspekeOprfSecret = "bsspeke_oprf_secret"
+            case appStore = "app_store"
             case bsspeke
-            //case domain
             case email
             case terms
             case googlePlay = "google_play"
-            //case homeserver
             case registration
             case routes
             case defaultFlows = "default_flows"
@@ -101,9 +103,10 @@ struct UiaController: RouteCollection {
         }
         
         if let googleConfig = config.googlePlay {
-            authCheckerModules.append(
-                PlayStoreSubscriptionChecker(app: app, config: googleConfig)
-            )
+            authCheckerModules.append(PlayStoreSubscriptionChecker(app: app, config: googleConfig))
+        }
+        if let appleConfig = config.appStore {
+            authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(config: appleConfig, app: app))
         }
         
         self.checkers = [:]
@@ -114,15 +117,13 @@ struct UiaController: RouteCollection {
         }
         
         // Set up our endpoint handlers, that take over after UIA is complete
-        self.defaultProxyHandler = ProxyHandler(app: self.app, homeserver: matrixConfig.homeserver, authConfig: config.backendAuth)
+        self.defaultProxyHandler = ProxyHandler(app: self.app)
         let loginHandler = LoginHandler(app: self.app,
-                                        homeserver: matrixConfig.homeserver,
-                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
-                                        authConfig: config.backendAuth)
+                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows)
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,
-            RegistrationHandler(app: self.app, homeserver: matrixConfig.homeserver, config: self.config.registration),
+            RegistrationHandler(app: self.app),
             AccountDeactivateHandler(checkers: authCheckerModules, proxy: defaultProxyHandler),
             Account3PidHandler(),
             AccountPasswordHandler(),
@@ -134,7 +135,7 @@ struct UiaController: RouteCollection {
                 self.handlers[endpoint] = module
             }
         }
-        self.passthruHandler = PassthruHandler(app: app, homeserver: matrixConfig.homeserver, endpoints: self.config.passthruEndpoints ?? [])
+        self.passthruHandler = PassthruHandler(app: app, endpoints: self.config.passthruEndpoints ?? [])
 
     }
     
@@ -257,6 +258,8 @@ struct UiaController: RouteCollection {
         
         for (endpoint,handler) in handlers {
             matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
+                let path = endpoint.pathComponents.map { $0.description }.joined()
+                req.logger.debug("Handling request for \(endpoint.method) \(path) with \(handler.self)")
                 return try await handle(req: req, for: endpoint, with: handler)
             }
         }
@@ -453,12 +456,18 @@ struct UiaController: RouteCollection {
             
             let requiredFlows = try await _getRequiredFlows(flows: flows, for: userId, making: req)
 
-            // Check to see if we have any flows with no remaining required stages
+            // If there are no flows required for this request, we're done
+            if requiredFlows.isEmpty {
+                req.logger.debug("No required flows.  Skipping UIA.")
+                return
+            }
+            // If we do have some flows, check to see if we have any flows with no remaining required stages
             for flow in requiredFlows {
                 if flow.stages.isEmpty {
                     // Yay we're actually done.
                     // Somehow this entire flow is satisfied.  For example, maybe we've already completed it in the recent past.
                     // Anyway, return success to indicate that we're done with UIA.
+                    req.logger.debug("Flow is satisfied.  Done with UIA.")
                     return
                 }
             }

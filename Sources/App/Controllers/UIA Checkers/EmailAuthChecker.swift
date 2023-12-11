@@ -17,9 +17,9 @@ struct EmailAuthChecker: AuthChecker {
     static let LOGIN_REQUEST_TOKEN = "m.login.email.request_token"
     static let LOGIN_SUBMIT_TOKEN = "m.login.email.submit_token"
     
-    let FROM_ADDRESS = "circuli@circu.li"
+    let FROM_ADDRESS = "circles-noreply@futo.org"
     
-    let postmarkToken: String
+    let config: EmailConfig
     
     let app: Application
     
@@ -28,6 +28,14 @@ struct EmailAuthChecker: AuthChecker {
             var type: String
             var session: String
             var email: String
+            var subscribeToList: Bool?
+            
+            enum CodingKeys: String, CodingKey {
+                case type
+                case session
+                case email
+                case subscribeToList = "subscribe_to_list"
+            }
         }
         var auth: AuthDict
     }
@@ -45,7 +53,7 @@ struct EmailAuthChecker: AuthChecker {
     //        Then we can support sending email through different services
     init(app: Application, config: EmailConfig) {
         self.app = app
-        self.postmarkToken = config.postmarkToken
+        self.config = config
     }
     
     
@@ -58,8 +66,14 @@ struct EmailAuthChecker: AuthChecker {
         ]
     }
     
-    func getParams(req: Request, sessionId: String, authType: String, userId maybeUserId: String?) async throws -> [String : AnyCodable]? {
-        if EmailAuthChecker.LOGIN_REQUEST_TOKEN == authType {
+    func getParams(req: Request,
+                   sessionId: String,
+                   authType: String,
+                   userId maybeUserId: String?
+    ) async throws -> [String : AnyCodable]? {
+
+        switch authType {
+        case EmailAuthChecker.LOGIN_REQUEST_TOKEN:
             // The user is already registered, so we know what their valid email address(es) are
             // If they have more than one address, they need to tell us which one to use
             
@@ -68,16 +82,23 @@ struct EmailAuthChecker: AuthChecker {
                 throw Abort(.internalServerError)
             }
             
-            let emailAddressRecords = try await UserEmailAddress.query(on: req.db).filter(\.$userId == userId).all()
-            var emailAddresses: [String] = []
-            for record in emailAddressRecords {
-                let email = record.email
-                emailAddresses.append(email)
-            }
+            let emailAddressRecords = try await UserEmailAddress
+                                                    .query(on: req.db)
+                                                    .filter(\.$userId == userId)
+                                                    .all()
+            let emailAddresses = emailAddressRecords.map { $0.email }
             
             return ["addresses": AnyCodable(emailAddresses)]
             
-        } else {
+        case EmailAuthChecker.ENROLL_REQUEST_TOKEN:
+            if let _ = app.config?.uia.email.mailchimp {
+                // We have a mailing list.  Offer it to the user.
+                return ["offer_list_subscription": true]
+            } else {
+                return nil
+            }
+
+        default:
             return nil
         }
     }
@@ -122,11 +143,11 @@ struct EmailAuthChecker: AuthChecker {
         let postmarkResponse = try await Postmark.sendEmail(
                                      from: FROM_ADDRESS,
                                      to: userEmail,
-                                     subject: "\(code) is your Circuli verification code",
-                                     html: "<html><body>Your verification code for Circuli is: <b>\(code)</b>.</body></html>",
-                                     text: "Your verification code for Circuli is: \(code)",
+                                     subject: "\(code) is your Circles verification code",
+                                     html: "<html><body>Your verification code for Circles is: <b>\(code)</b>.</body></html>",
+                                     text: "Your verification code for Circles is: \(code)",
                                      for: req,
-                                     token: postmarkToken)
+                                     token: config.postmark.token)
         
         if postmarkResponse.errorCode != 0 {
             // Sending the email through Postmark has failed
@@ -144,6 +165,10 @@ struct EmailAuthChecker: AuthChecker {
             // If the user succeeds in enrolling, we'll save it into the DB in onEnrolled()
             await session.setData(for: authType+".email", value: userEmail)
         }
+        
+        // Remember whether the user wants to be subscribed to our mailing list
+        let subscribeUserToList = auth.subscribeToList ?? false
+        await session.setData(for: authType+".subscribe", value: subscribeUserToList)
 
         req.logger.debug("Sent email with token \(code)")
         
@@ -243,6 +268,15 @@ struct EmailAuthChecker: AuthChecker {
             let emailRecord = UserEmailAddress(userId: userId, email: userEmail)
             try await emailRecord.save(on: req.db)
             req.logger.debug("m.enroll.email: User email saved to the database")
+            
+            // Did the user want to be subscribed to our mailing list?
+            if let subscribeUserToList = await session.getData(for: EmailAuthChecker.ENROLL_REQUEST_TOKEN+".subscribe") as? Bool,
+               subscribeUserToList == true,
+               let mailchimp = config.mailchimp
+            {
+                req.logger.debug("m.enroll.email: Subscribing user to our mailing list")
+                try await Mailchimp.subscribe(email: userEmail, to: mailchimp.listId, for: req, server: mailchimp.server, apiKey: mailchimp.apiKey)
+            }
         } else {
             let msg = "m.enroll.email: Couldn't enroll user \(userId) because there is no email address in the session"
             req.logger.error("\(msg)")

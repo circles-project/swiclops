@@ -24,7 +24,51 @@ struct BasicRegisterRequestBody: Content {
         case initialDeviceDisplayName = "initial_device_display_name"
         case password
         case refreshToken = "refresh_token"
-        //case username
+    }
+}
+
+struct SynapseAdminPutUserRequestBody: Content {
+    var password: String?
+    var logoutDevices: Bool?
+    var displayname: String?
+    var avatarUrl: String?
+    var threepids: [ThreePid]?
+    struct ThreePid: Codable {
+        var medium: Medium
+        enum Medium: String, Codable {
+            case email
+            case msisdn
+        }
+        var address: String
+    }
+    var externalIds: [ExternalId]?
+    struct ExternalId: Codable {
+        var auth_provider: String
+        var external_id: String
+    }
+    var admin: Bool?
+    var deactivated: Bool?
+    var locked: Bool?
+    var userType: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case password
+        case logoutDevices = "logout_devices"
+        case displayname
+        case avatarUrl = "avatar_url"
+        case threepids
+        case externalIds = "external_ids"
+        case admin
+        case deactivated
+        case locked
+        case userType = "user_type"
+    }
+    
+    init(email: String? = nil) {
+        if let emailAddress = email {
+            self.threepids = [ThreePid(medium: .email, address: emailAddress)]
+        }
+        self.logoutDevices = false
     }
 }
 
@@ -97,27 +141,14 @@ struct RegisterResponseBody: Content {
 
 struct RegistrationHandler: EndpointHandler {
     let app: Application
-    let homeserver: URL
     var endpoints: [Endpoint]
-    var config: Config
     
-    struct Config: Codable {
-        var sharedSecret: String
-        var useAdminApi: Bool
-        
-        enum CodingKeys: String, CodingKey {
-            case sharedSecret = "shared_secret"
-            case useAdminApi = "use_admin_api"
-        }
-    }
     
-    init(app: Application, homeserver: URL, config: Config) {
+    init(app: Application) {
         self.app = app
-        self.homeserver = homeserver
         self.endpoints = [
             .init(.POST, "/register"),
         ]
-        self.config = config
     }
     
     
@@ -150,103 +181,131 @@ struct RegistrationHandler: EndpointHandler {
             req.logger.error("Couldn't find username")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find username")
         }
-        req.logger.debug("RegistrationHandler: username = [\(username)")
+        req.logger.debug("RegistrationHandler: username = \(username)")
+        
         
         // We don't really handle /register requests all by ourselves
         // We handle all the authentication parts, but the "real" homeserver is the one who actually creates the account
         // Now that the UIA is done, we need to craft a /register request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
         
-        if self.config.useAdminApi {
-            // -- Here we're using the shared secret approach from the Synapse admin API https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
-            
-            // First get a fresh nonce from the homeserver
-            let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
-            let nonceResponse = try await req.client.get(nonceURI)
-            struct NonceResponseBody: Content {
-                var nonce: String
-            }
-            guard let nonceResponseBody = try? nonceResponse.content.decode(NonceResponseBody.self) else {
-                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get nonce")
-            }
-            let nonce = nonceResponseBody.nonce
-            req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
-                        
-            // Build the shared-secret request from the normal request and the crypto material
-            let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: self.config.sharedSecret)
-            
-            // We have to use the special admin API, not the normal client-server endpoint
-            let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
-
-            let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
-            req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
-
-            // If the response was successful, then the user was just registered on the homeserver
-            if proxyResponse.status == .ok {
-                // We need to find out the user_id for all of our post-enroll callbacks
-                struct MinimalRegisterResponse: Content {
-                    var userId: String
-                    
-                    enum CodingKeys: String, CodingKey {
-                        case userId = "user_id"
-                    }
-                }
-                guard let minimalResponse = try? proxyResponse.content.decode(MinimalRegisterResponse.self)
-                else {
-                    req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
-                    
-                    // Ok WTF is going on here???
-                    // Update: It turns out that the nginx-proxy was adding gzip compression, which the Vapor client can't handle by default 🤦‍♂️😱👎
-                    //         The fix was simple: Connect directly to Synapse instead of going through Nginx.
-                    //         Alternatively, we also enabled decompression for the client in configure()
-                    req.logger.error("RegistrationHandler: Proxy response was \(proxyResponse.description)")
-                    
-                    throw Abort(.internalServerError)
-                }
-                let userId = minimalResponse.userId
-                req.logger.debug("RegistrationHandler: The new user's id is [\(userId)]")
-                
-                // Now we need to save the user id in the UIA session; This is also for the post-enroll processing
-                guard let uiaResponse = try? req.content.decode(UiaRequest.self) else {
-                    req.logger.error("RegistrationHandler: Couldn't decode UIA request")
-                    throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't decode UIA request")
-                }
-                let auth = uiaResponse.auth
-                let session = req.uia.connectSession(sessionId: auth.session)
-                await session.setData(for: "user_id", value: userId)
-            }
-            
-            let response = try await proxyResponse.encodeResponse(for: req)
-            req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
-            
-            // FIXME: If the user validated an email address, we should also add it as a 3pid
-            // * We can either send a PUT to /_synapse/admin/v2/users/<user_id>
-            //   https://matrix-org.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
-            //   Or we can use that same endpoint to create the user in the first place,
-            //   and include the email address in that first call to create the user
-            
-            return response
-            
-            /*
-            if let buf = proxyResponse.body {
-                req.logger.debug("RegistrationHandler: Admin API response has a body")
-                if let stringBody = buf.readNullTerminatedString() {
-                    req.logger.debug("RegistrationHandler: Response body is [\(stringBody)]")
-                } else {
-                    req.logger.debug("RegistrationHandler: Failed to convert response body to a String")
-                }
-                return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: Response.Body(buffer: buf))
-            } else {
-                return Response(status: proxyResponse.status, headers: proxyResponse.headers)
-            }
-            */
-        }
+        guard let admin = req.application.admin
         else {
-            // Not using the admin API
-            // Here we forward the request to the normal CS API endpoint, with m.login.dummy for the UIA
-            
-            throw Abort(.notImplemented)
+            req.logger.error("Could not get admin backend")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not get admin backend")
         }
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Could not get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not get configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
+
+        // -- Here we're using the shared secret approach from the Synapse admin API v1 https://matrix-org.github.io/synapse/latest/admin_api/register_api.html
+        
+        // First get a fresh nonce from the homeserver
+        let nonceURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
+        let nonceResponse = try await req.client.get(nonceURI)
+        struct NonceResponseBody: Content {
+            var nonce: String
+        }
+        guard let nonceResponseBody = try? nonceResponse.content.decode(NonceResponseBody.self) else {
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get nonce")
+        }
+        let nonce = nonceResponseBody.nonce
+        req.logger.debug("RegistrationHandler: Got nonce = [\(nonce)]")
+        
+
+                        
+        // Build the shared-secret request from the normal request and the crypto material
+        let secret = config.uia.registration.sharedSecret
+        let proxyRequestBody = SharedSecretRegisterRequestBody(clientRequest, username: username, nonce: nonce, sharedSecret: secret)
+        if let requestingRefreshToken = proxyRequestBody.refreshToken,
+           requestingRefreshToken == true
+        {
+            req.logger.debug("RegistrationHandler: Requesting refresh token for new user \(username)")
+        } else {
+            req.logger.debug("RegistrationHandler: Not requesting refresh token for new user \(username)")
+        }
+            
+        // We have to use the special admin API, not the normal client-server endpoint
+        let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v1/register")
+
+        let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
+        req.logger.debug("RegistrationHandler: Got admin API response with status \(proxyResponse.status.code) \(proxyResponse.status.reasonPhrase)")
+
+        // If the response was successful, then the user was just registered on the homeserver
+        if proxyResponse.status == .ok {
+            // We need to find out the user_id for all of our post-enroll callbacks
+            guard let responseBody = try? proxyResponse.content.decode(RegisterResponseBody.self)
+            else {
+                req.logger.error("RegistrationHandler: Admin API returned 200 OK but we can't find a user_id")
+                
+                // Ok WTF is going on here???
+                // Update: It turns out that the nginx-proxy was adding gzip compression, which the Vapor client can't handle by default 🤦‍♂️😱👎
+                //         The fix was simple: Connect directly to Synapse instead of going through Nginx.
+                //         Alternatively, we also enabled decompression for the client in configure()
+                req.logger.error("RegistrationHandler: Proxy response was \(proxyResponse.description)")
+                
+                throw Abort(.internalServerError)
+            }
+            let userId = responseBody.userId
+            req.logger.debug("RegistrationHandler: Registered new user with user id = \(userId)  access_token = \(responseBody.accessToken ?? "(none)")  refresh_token = \(responseBody.refreshToken ?? "(none)")")
+            
+            // Now we need to save the user id in the UIA session; This is also for the post-enroll processing
+            guard let uiaResponse = try? req.content.decode(UiaRequest.self) else {
+                req.logger.error("RegistrationHandler: Couldn't decode UIA request")
+                throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't decode UIA request")
+            }
+            let auth = uiaResponse.auth
+            let session = req.uia.connectSession(sessionId: auth.session)
+            await session.setData(for: "user_id", value: userId)
+            
+            
+            // If the user validated an email address, we should also add it as a 3pid
+            //   * To do this, we send a PUT to /_synapse/admin/v2/users/<user_id>
+            //     https://matrix-org.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+            //     - Alternatively, we could just make a single call to the admin API v2 endpoint instead of making the request above
+            //     - But then we would have to handle all the other junk that /register normally does.. initial device id, etc.
+            //   * Then we can send the user email notifications about important things that happen on the server (downtime, new messages, etc)
+            // HOWEVER to do this requires that we have admin user credentials on the homeserver
+            if let creds = admin.creds,
+               let email = await session.getData(for: EmailAuthChecker.ENROLL_SUBMIT_TOKEN+".email") as? String
+            {
+                req.logger.debug("Calling Synapse user admin API to add email address")
+                
+                let uri = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: "/_synapse/admin/v2/users/\(userId)")
+                
+                let requestBody = SynapseAdminPutUserRequestBody(email: email)
+                
+                let headers = HTTPHeaders([
+                    ("Accept", "application/json"),
+                    ("Content-Type", "application/json"),
+                    ("Authorization", "Bearer \(creds.accessToken)")
+                ])
+                
+                req.logger.debug("Sending /users admin request with headers = \(headers)")
+
+                let userAdminResponse = try await req.client.put(uri, headers: headers, content: requestBody)
+                
+                if userAdminResponse.status.code == 200 {
+                    req.logger.debug("Added email address \(email) for user \(userId)")
+                } else {
+                    req.logger.error("Failed to add email address - got HTTP \(userAdminResponse.status.code) \(userAdminResponse.status.reasonPhrase)")
+                }
+                
+            } else {
+                req.logger.debug("Not adding an email adddress for new user \(userId)")
+            }
+            
+        }
+        
+        let response = try await proxyResponse.encodeResponse(for: req)
+        req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
+        
+        return response
     }
     
 }

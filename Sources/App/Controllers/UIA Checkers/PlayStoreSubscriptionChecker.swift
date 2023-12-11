@@ -129,6 +129,12 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Failed to validate subscription purchase")
         }
         
+        guard purchase.subscriptionState == .active
+        else {
+            req.logger.error("Subscription is not active")
+            throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Subscription is not active")
+        }
+        
         // Verify that the subscription period includes the current time
         let now = Date()
         let wiggleRoom: TimeInterval = 5 * 60.0  // Allow for clocks to be off by up to 5 minutes
@@ -174,7 +180,7 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         return true
     }
     
-    func getRequestedSubscription(for userId: String, making req: Request) async throws {
+    func getRequestedSubscription(for userId: String, making req: Request) async throws -> InAppSubscription? {
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
             let msg = "Couldn't parse UIA request"
             req.logger.error("Couldn't parse UIA request")
@@ -220,6 +226,15 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         }
         
         // FIXME: Return the requested subscription
+        return InAppSubscription(userId: userId,
+                                 provider: PROVIDER_GOOGLE_PLAY,
+                                 productId: subscriptionId,
+                                 transactionId: orderId,
+                                 originalTransactionId: <#T##String#>,
+                                 bundleId: packageId,
+                                 startDate: startDate,
+                                 endDate: endDate,
+                                 familyShared: <#T##Bool#>)
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
@@ -240,31 +255,23 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         let auth = uiaRequest.auth
         let session = req.uia.connectSession(sessionId: auth.session)
         
-        guard let subscriptionProductId = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".subscription_id") as? String,
-              let package = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".package_id") as? String,
-              let token = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".token") as? String,
-              let startDate = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".start_date") as? Date,
-              let endDate = await session.getData(for: AUTH_TYPE_PLAYSTORE_SUBSCRIPTION+".end_date") as? Date
+        guard let subscription = try await getRequestedSubscription(for: userId, making: req)
         else {
-            req.logger.error("Could not retrieve subscription infofor Google Play")
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error finalizing Google Play subscription")
+            req.logger.error("Couldn't get requested Play Store subscription")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not find requested Play Store subscription info")
         }
-        
-        let subscription = Subscription(userId: userId,
-                                        provider: PROVIDER_GOOGLE_PLAY,
-                                        identifier: token,
-                                        startDate: startDate,
-                                        endDate: endDate,
-                                        level: subscriptionProductId)
         
         try await subscription.save(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        let subscriptions = try await Subscription
+        let now = Date()
+        let subscriptions = try await InAppSubscription
                                         .query(on: app.db)
                                         .filter(\.$userId == userId)
                                         .filter(\.$provider == PROVIDER_GOOGLE_PLAY)
+                                        .filter(\.$startDate < now)
+                                        .filter(\.$endDate > now)
                                         .all()
 
         return !subscriptions.isEmpty

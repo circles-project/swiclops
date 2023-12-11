@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.8
 import PackageDescription
 
 let package = Package(
@@ -18,6 +18,8 @@ let package = Package(
         .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.3.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "3.0.0"),
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
+        //.package(url: "https://github.com/apple/app-store-server-library-swift.git", .upToNextMinor(from: "0.1.0")),
+        .package(url: "https://github.com/cvwright/app-store-server-library-swift.git", branch: "cvwright/debug"),
     ],
     targets: [
         .target(
@@ -32,7 +34,8 @@ let package = Package(
                 .product(name: "Yams", package: "yams"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
                 .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "JWT", package: "jwt")
+                .product(name: "JWT", package: "jwt"),
+                .product(name: "AppStoreServerLibrary", package: "app-store-server-library-swift"),
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of

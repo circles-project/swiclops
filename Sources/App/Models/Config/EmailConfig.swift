@@ -9,9 +9,6 @@ import Vapor
 import Fluent
 
 struct EmailConfig: Codable {
-    var postmarkToken: String
-    
-    enum CodingKeys: String, CodingKey {
-        case postmarkToken = "postmark_token"
-    }
+    var postmark: Postmark.Config
+    var mailchimp: Mailchimp.Config?
 }

@@ -35,26 +35,22 @@ struct LoginRequestBody: Content {
 struct LoginHandler: EndpointHandler {
     
     let app: Application
-    let homeserver: URL
     let endpoints: [Endpoint]
     let flows: [UiaFlow]
-    let authConfig: BackendAuthConfig
     
-    init(app: Application, homeserver: URL, flows: [UiaFlow], authConfig: BackendAuthConfig) {
+    init(app: Application, flows: [UiaFlow]) {
         self.app = app
-        self.homeserver = homeserver
         self.endpoints = [
             .init(.GET, "/login"),
             .init(.POST, "/login"),
         ]
         self.flows = flows
-        self.authConfig = authConfig
     }
     
     func handle(req: Request) async throws -> Response {
         switch req.method {
         case .GET:
-            return try await handleGet(req: req) as! Response
+            return try await handleGet(req: req)
         case .POST:
             return try await handlePost(req: req)
         default:
@@ -62,34 +58,51 @@ struct LoginHandler: EndpointHandler {
         }
     }
     
-    func handleGet(req: Request) async throws -> ResponseEncodable {
+    func handleGet(req: Request) async throws -> Response {
+        req.logger.debug("LoginHandler handling GET request")
         
         struct LoginGetResponseUIA: Content {
             var flows: [UiaFlow]
         }
         let responseBody = LoginGetResponseUIA(flows: self.flows)
-        return responseBody
+        return try await responseBody.encodeResponse(for: req)
     }
     
     func handlePost(req: Request) async throws -> Response {
         
         if req.auth.get(MatrixUser.self) != nil {
+            req.logger.error("Can't /login if you already have an access_token")
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Can't /login if you already have an access_token")
         }
         
         guard let clientRequest = try? req.content.decode(LoginRequestBody.self)
         else {
+            req.logger.error("Couldn't parse /login request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse /login request")
         }
         
         // We don't actually handle /login requests ourselves
         // We need to craft a /login request of the proper form, so that the homeserver can know that it came from us
         // And then we proxy it to the real homeserver
+        guard let sharedSecret = app.admin?.sharedSecret
+        else {
+            req.logger.error("Could not get admin shared secret")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not perform backend authorization")
+        }
+        
+        guard let config = req.application.config
+        else {
+            req.logger.error("Failed to get application config")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not load configuration")
+        }
+        
+        let homeserver = config.matrix.homeserver
+        
         let homeserverURI = URI(scheme: homeserver.scheme, host: homeserver.host, port: homeserver.port, path: req.url.path)
-        let token = try SharedSecretAuth.token(secret: self.authConfig.sharedSecret, userId: clientRequest.identifier.user)
+        let token = try SharedSecretAuth.token(secret: sharedSecret, userId: clientRequest.identifier.user)
         var proxyRequestBody = clientRequest
         proxyRequestBody.password = nil
-        proxyRequestBody.type = self.authConfig.type.rawValue
+        proxyRequestBody.type = "com.devture.shared_secret_auth"
         proxyRequestBody.token = token
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())

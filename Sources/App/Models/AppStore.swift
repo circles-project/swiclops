@@ -8,20 +8,10 @@
 
 import Vapor
 
-public enum AppStore {
-    public enum Environment: String, Codable {
-        case sandbox = "Sandbox"
-        case production = "Production"
+import AppStoreServerLibrary
 
-        var url: String {
-            switch self {
-            case .sandbox:
-                return "https://sandbox.itunes.apple.com/verifyReceipt"
-            case .production:
-                return "https://buy.itunes.apple.com/verifyReceipt"
-            }
-        }
-    }
+public enum AppStore {
+    public typealias Environment = AppStoreServerLibrary.Environment
     
     public enum Error: Swift.Error {
         /// The App Store could not read the JSON object you provided.
