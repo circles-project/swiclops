@@ -238,7 +238,7 @@ enum GooglePlay {
             var productId: String
 
             // A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
-            var expiryTime: String
+            var expiryTime: Date
 
             var plan_type: PlanType
             // Ugh Typescript unions are horrible in Swift
@@ -466,7 +466,7 @@ enum GooglePlay {
         // testPurchase
         // object (TestPurchase)
         // Only present if this subscription purchase is a test purchase.
-        var testPurchase: TestPurchase
+        var testPurchase: TestPurchase?
         struct TestPurchase: Codable {
             // Empty - https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#testpurchase
         }
