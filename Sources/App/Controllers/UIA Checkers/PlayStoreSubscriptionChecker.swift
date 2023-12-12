@@ -20,12 +20,26 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
     struct Config: Codable {
         var developerId: String?
         var packageIds: [String]
-        var productIds: [String]
+        
+        struct ProductInfo: Codable {
+            var level: Int
+            var subscriptionId: String
+            var shareable: Bool
+            var quota: UInt64
+            
+            enum CodingKeys: String, CodingKey {
+                case level
+                case subscriptionId = "subscription_id"
+                case shareable
+                case quota
+            }
+        }
+        let products: [ProductInfo]
 
         enum CodingKeys: String, CodingKey {
             case developerId = "developer_id"
             case packageIds = "package_ids"
-            case productIds = "product_ids"
+            case products
         }
     }
     
