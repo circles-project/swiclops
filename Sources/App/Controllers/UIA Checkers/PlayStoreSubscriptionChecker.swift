@@ -41,6 +41,10 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
             case packageIds = "package_ids"
             case products
         }
+        
+        var productIds: [String] {
+            self.products.map { $0.subscriptionId }
+        }
     }
     
     init(app: Application, config: Config) {
