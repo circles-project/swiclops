@@ -132,7 +132,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     
     // MARK: init
     
-    init(config: Config, app: Application) {
+    init(app: Application, config: Config) {
         self.config = config
         
         let logger = app.logger

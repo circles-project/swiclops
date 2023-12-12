@@ -30,11 +30,11 @@ struct UiaController: RouteCollection {
     
     // MARK: Config
     struct Config: Codable {
-        var appStore: AppleStoreKitV2SubscriptionChecker.Config?
+        var appleAppStore: AppleStoreKitV2SubscriptionChecker.Config?
         var bsspeke: BSSpekeAuthChecker.Config
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
-        var googlePlay: PlayStoreSubscriptionChecker.Config?
+        var googlePlayStore: PlayStoreSubscriptionChecker.Config?
         
         var registration: RegistrationConfig
         struct RegistrationConfig: Codable {
@@ -56,11 +56,11 @@ struct UiaController: RouteCollection {
         }
         
         enum CodingKeys: String, CodingKey {
-            case appStore = "app_store"
+            case appleAppStore = "apple_app_store"
             case bsspeke
             case email
             case terms
-            case googlePlay = "google_play"
+            case googlePlayStore = "google_play_store"
             case registration
             case routes
             case defaultFlows = "default_flows"
@@ -102,11 +102,11 @@ struct UiaController: RouteCollection {
             authCheckerModules.append(TermsAuthChecker(app: app, config: termsConfig))
         }
         
-        if let googleConfig = config.googlePlay {
+        if let googleConfig = config.googlePlayStore {
             authCheckerModules.append(PlayStoreSubscriptionChecker(app: app, config: googleConfig))
         }
-        if let appleConfig = config.appStore {
-            authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(config: appleConfig, app: app))
+        if let appleConfig = config.appleAppStore {
+            authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(app: app, config: appleConfig))
         }
         
         self.checkers = [:]
