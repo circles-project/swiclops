@@ -279,7 +279,7 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not find requested Play Store subscription info")
         }
         
-        try await subscription.save(on: req.db)
+        try await subscription.create(on: req.db)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
