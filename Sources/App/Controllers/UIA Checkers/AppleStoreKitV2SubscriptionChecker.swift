@@ -12,7 +12,7 @@ import AnyCodable
 import AppStoreServerLibrary
 
 struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
-    let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple_storekit_v2"
+    let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscriptions.apple_storekit_v2"
     let PROVIDER_APPLE_STOREKIT2 = "apple_storekit_v2"
 
     // MARK: config
