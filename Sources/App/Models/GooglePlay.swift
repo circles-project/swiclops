@@ -8,6 +8,18 @@
 import Vapor
 
 enum GooglePlay {
+    // MARK: Money
+    // https://developers.google.com/android-publisher/api-ref/rest/v3/Money
+    struct Money: Codable {
+        // The three-letter currency code defined in ISO 4217.
+        var currencyCode: String
+        
+        // string (int64 format)
+        // The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar.
+        var units: String
+        
+        var nanos: Int
+    }
     
     // MARK: SubscriptionPurchase
     // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions#resource:-subscriptionpurchase
@@ -142,22 +154,27 @@ enum GooglePlay {
         // profileName
         // string
         // The profile name of the user when the subscription was purchased. Only present for purchases made with 'Subscribe with Google'.
-
+        var profileName: String?
+        
         // emailAddress
         // string
         // The email address of the user when the subscription was purchased. Only present for purchases made with 'Subscribe with Google'.
+        var emailAddress: String?
 
         // givenName
         // string
         // The given name of the user when the subscription was purchased. Only present for purchases made with 'Subscribe with Google'.
+        var givenName: String?
 
         // familyName
         // string
         // The family name of the user when the subscription was purchased. Only present for purchases made with 'Subscribe with Google'.
+        var familyName: String?
 
         // profileId
         // string
         // The Google profile id of the user when the subscription was purchased. Only present for purchases made with 'Subscribe with Google'.
+        var profileId: String?
 
         // acknowledgementState
         // integer
@@ -167,6 +184,7 @@ enum GooglePlay {
         // externalAccountId
         // string
         // User account identifier in the third-party service. Only present if account linking happened as part of the subscription purchase flow.
+        var externalAccountId: String?
 
         // promotionType
         // integer
@@ -180,15 +198,18 @@ enum GooglePlay {
 
         // obfuscatedExternalAccountId
         // string
-        // An obfuscated version of the id that is uniquely associated with the user's account in your app. Present for the following purchases: * If account linking happened as part of the subscription purchase flow. * It was specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedaccountid when the purchase was made.
+        // An obfuscated version of the id that is uniquely associated with the user's account in your app. Present for the following purchases:
+        //   * If account linking happened as part of the subscription purchase flow.
+        //   * It was specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedaccountid when the purchase was made.
+        var obfuscatedExternalAccountId: String?
 
         // obfuscatedExternalProfileId
         // string
         // An obfuscated version of the id that is uniquely associated with the user's profile in your app. Only present if specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedprofileid when the purchase was made.
+        var obfuscatedExternalProfileId: String?
     }
  
     // MARK: SubscriptionPurchaseV2
-    /*
     // FIXME: This is incomplete...
     // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#resource:-subscriptionpurchasev2
     struct SubscriptionPurchaseV2: Content {
@@ -210,9 +231,81 @@ enum GooglePlay {
         // lineItems[]
         // object (SubscriptionPurchaseLineItem)
         // Item-level info for a subscription purchase. The items in the same purchase should be either all with AutoRenewingPlan or all with PrepaidPlan.
+        // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#subscriptionpurchaselineitem
         var lineItems: [SubscriptionPurchaseLineItem]
         struct SubscriptionPurchaseLineItem: Codable {
-            
+
+            var productId: String
+
+            // A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+            var expiryTime: Date
+
+            var plan_type: PlanType
+            // Ugh Typescript unions are horrible in Swift
+            enum PlanType: Codable {
+                case autoRenewing(AutoRenewingPlan)
+                case prepaid(PrepaidPlan)
+                
+                struct AutoRenewingPlan: Codable {
+                    var autoRenewEnabled: Bool
+                    var priceChangeDetails: SubscriptionItemPriceChangeDetails
+                    struct SubscriptionItemPriceChangeDetails: Codable {
+                        var newPrice: Money
+
+                        var priceChangeMode: PriceChangeMode
+                        enum PriceChangeMode: String, Codable {
+                            case unspecified = "PRICE_CHANGE_MODE_UNSPECIFIED"
+                            case decrease = "PRICE_DECREASE"
+                            case increase = "PRICE_INCREASE"
+                            case optOutIncrease = "OPT_OUT_PRICE_INCREASE"
+                        }
+                        
+                        var priceChangeState: PriceChangeState
+                        enum PriceChangeState: String, Codable {
+                            case unspecified = "PRICE_CHANGE_STATE_UNSPECIFIED"
+                            case outstanding = "OUTSTANDING"
+                            case confirmed = "CONFIRMED"
+                            case applied = "APPLIED"
+                        }
+                        
+                        var expectedNewPriceChargeTime: String
+                    }
+                }
+                
+                struct PrepaidPlan: Codable {
+                    // A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+                    var allowExtendAfterTime: String
+                }
+                
+                enum CodingKeys: String, CodingKey {
+                    case autoRenewingPlan
+                    case prepaidPlan
+                }
+                
+                init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    
+                    if let auto = try container.decodeIfPresent(AutoRenewingPlan.self, forKey: .autoRenewingPlan) {
+                        self = .autoRenewing(auto)
+                        return
+                    } else {
+                        let prepaid = try container.decode(PrepaidPlan.self, forKey: .prepaidPlan)
+                        self = .prepaid(prepaid)
+                    }
+                }
+                
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    
+                    switch self {
+                    case .autoRenewing(let auto):
+                        try container.encode(auto, forKey: .autoRenewingPlan)
+                    case .prepaid(let prepaid):
+                        try container.encode(prepaid, forKey: .prepaidPlan)
+                    }
+                }
+            }
+
         }
         
         // startTime
@@ -273,15 +366,110 @@ enum GooglePlay {
         // canceledStateContext
         // object (CanceledStateContext)
         // Additional context around canceled subscriptions. Only present if the subscription currently has subscriptionState SUBSCRIPTION_STATE_CANCELED.
-        //var canceledStateContext: CanceledStateContext?
+        var canceledStateContext: CanceledStateContext?
         // Ugh what a mess: https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#canceledstatecontext
-        //struct CanceledStateContext: Codable {
-        //
-        //}
+        struct CanceledStateContext: Codable {
+            var cancellationReason: CancellationReason
+            
+            enum CancellationReason: Codable {
+                case userInitiated(UserInitiatedCancellation)
+                case systemInitiated(SystemInitiatedCancellation)
+                case developerInitiated(DeveloperInitiatedCancellation)
+                case replacement(ReplacementCancellation)
+            
+                // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#UserInitiatedCancellation
+                struct UserInitiatedCancellation: Codable {
+                    var cancelSurveyResult: CancelSurveyResult
+                    struct CancelSurveyResult: Codable {
+                        var reason: CancelSurveyReason
+                        enum CancelSurveyReason: String, Codable {
+                            case unspecified = "CANCEL_SURVEY_REASON_UNSPECIFIED"
+                            case notEnoughUSage = "CANCEL_SURVEY_REASON_NOT_ENOUGH_USAGE"
+                            case technicalIssues = "CANCEL_SURVEY_REASON_TECHNICAL_ISSUES"
+                            case costRelated = "CANCEL_SURVEY_REASON_COST_RELATED"
+                            case foundBetterApp = "CANCEL_SURVEY_REASON_FOUND_BETTER_APP"
+                            case others = "CANCEL_SURVEY_REASON_OTHERS"
+                        }
+                        var reasonUserInput: String
+                    }
+                    var cancelTime: String
+                }
+                
+                struct SystemInitiatedCancellation: Codable {
+                    // Empty
+                }
+                
+                struct DeveloperInitiatedCancellation: Codable {
+                    // Empty
+                }
+                
+                struct ReplacementCancellation: Codable {
+                    // Empty
+                }
+                
+                enum CodingKeys: String, CodingKey {
+                    case userInitiatedCancellation
+                    case systemInitiatedCancellation
+                    case developerInitiatedCancellation
+                    case replacementCancellation
+                }
+                
+                init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    
+                    if let user = try container.decodeIfPresent(UserInitiatedCancellation.self, forKey: .userInitiatedCancellation) {
+                        self = .userInitiated(user)
+                        return
+                    }
+                    
+                    if let system = try container.decodeIfPresent(SystemInitiatedCancellation.self, forKey: .systemInitiatedCancellation) {
+                        self = .systemInitiated(system)
+                        return
+                    }
+                    
+                    if let developer = try container.decodeIfPresent(DeveloperInitiatedCancellation.self, forKey: .developerInitiatedCancellation) {
+                        self = .developerInitiated(developer)
+                        return
+                    }
+                    
+                    if let replacement = try container.decodeIfPresent(ReplacementCancellation.self, forKey: .replacementCancellation) {
+                        self = .replacement(replacement)
+                        return
+                    }
+                    
+                    throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Error parsing cancellation reason")
+                }
+                
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    
+                    switch self {
+                    case .userInitiated(let user):
+                        try container.encode(user, forKey: .userInitiatedCancellation)
+                        return
+                    case .systemInitiated(let system):
+                        try container.encode(system, forKey: .systemInitiatedCancellation)
+                        return
+                    case .developerInitiated(let developer):
+                        try container.encode(developer, forKey: .developerInitiatedCancellation)
+                        return
+                    case .replacement(let replacement):
+                        try container.encode(replacement, forKey: .replacementCancellation)
+                        return
+                    }
+                }
+                
+            }
+            
+        }
         
         // testPurchase
         // object (TestPurchase)
         // Only present if this subscription purchase is a test purchase.
+        var testPurchase: TestPurchase?
+        struct TestPurchase: Codable {
+            // Empty - https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#testpurchase
+        }
 
         // acknowledgementState
         //enum (AcknowledgementState)
@@ -296,11 +484,33 @@ enum GooglePlay {
         // externalAccountIdentifiers
         // object (ExternalAccountIdentifiers)
         // User account identifier in the third-party service.
+        // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#externalaccountidentifiers
+        var externalAccountIdentifiers: ExternalAccountIdentifiers
+        struct ExternalAccountIdentifiers: Codable {
+            // Only present if account linking happened as part of the subscription purchase flow.
+            var externalAccountId: String?
+            
+            // Present for the following purchases:
+            //   * If account linking happened as part of the subscription purchase flow.
+            //   * It was specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedaccountid when the purchase was made.
+            var obfuscatedExternalAccountId: String?
+            
+            // Only present if specified using https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder#setobfuscatedprofileid when the purchase was made.
+            var obfuscatedExternalProfileId: String?
+        }
 
         // subscribeWithGoogleInfo
         // object (SubscribeWithGoogleInfo)
         // User profile associated with purchases made with 'Subscribe with Google'.
+        // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#subscribewithgoogleinfo
+        var subscribeWithGoogleInfo: SubscribeWithGoogleInfo
+        struct SubscribeWithGoogleInfo: Codable {
+            var profileId: String
+            var profileName: String
+            var emailAddress: String
+            var givenName: String
+            var familyName: String
+        }
     }
-    */
     
 }
