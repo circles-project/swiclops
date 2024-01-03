@@ -96,6 +96,7 @@ struct UiaController: RouteCollection {
             EmailAuthChecker(app: app, config: config.email),
             FooAuthChecker(),
             BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
+            FreeSubscriptionChecker(),
         ]
         
         if let termsConfig = config.terms {
