@@ -302,10 +302,22 @@ struct RegistrationHandler: EndpointHandler {
             
         }
         
-        let response = try await proxyResponse.encodeResponse(for: req)
+        //let response = try await proxyResponse.encodeResponse(for: req)
+        let response = try await encodeProxyResponse(proxyResponse)
         req.logger.debug("RegistrationHandler: Converted ProxyResponse to a normal Vapor Response.  Returning now...")
         
         return response
+    }
+    
+    func encodeProxyResponse(_ res: ClientResponse) async throws -> Response {
+        let headers = HTTPHeaders([
+            ("Content-Type", "application/json")
+        ])
+        if let body = res.body {
+            return Response(status: res.status, headers: headers, body: Response.Body(buffer: body))
+        } else {
+            return Response(status: res.status, headers: headers)
+        }
     }
     
 }
