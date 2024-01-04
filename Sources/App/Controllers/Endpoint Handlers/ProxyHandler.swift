@@ -135,14 +135,22 @@ struct ProxyHandler: EndpointHandler {
             req.logger.debug("ProxyHandler: Authed response = \(authedResponse)")
             let authedResponseBody = Response.Body(buffer: authedResponse.body ?? .init())
             // And send the response back to the client
-            return Response(status: authedResponse.status, headers: authedResponse.headers, body: authedResponseBody)
+            let headers = HTTPHeaders([
+                ("Content-Type", "application/json")
+            ])
+            return Response(status: authedResponse.status,
+                            headers: headers,
+                            body: authedResponseBody)
         }
         else {
             // For all other response codes, we simply proxy the response back to the client
             // Maybe we're here because the request was malformed, or maybe the client had already authenticated in the recent past
             req.logger.debug("ProxyHandler: Homeserver did not require UIA for [\(homeserverURI)]")
             let responseBody = Response.Body(buffer: proxyResponse1.body ?? .init())
-            return Response(status: proxyResponse1.status, headers: proxyResponse1.headers, body: responseBody)
+            let headers = HTTPHeaders([
+                ("Content-Type", "application/json")
+            ])
+            return Response(status: proxyResponse1.status, headers: headers, body: responseBody)
         }
     }
     

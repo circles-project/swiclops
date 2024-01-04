@@ -47,9 +47,12 @@ struct PassthruHandler: EndpointHandler {
         
         let responseBody: Response.Body = clientResponse.body == nil ? .empty : .init(buffer: clientResponse.body!, byteBufferAllocator: self.allocator)
         
+        let headers = HTTPHeaders([
+            ("Content-Type", "application/json")
+        ])
         let response = Response(status: clientResponse.status,
                                 version: req.version,
-                                headers: clientResponse.headers,
+                                headers: headers,
                                 body: responseBody)
         
         req.logger.debug("Passthru: Sending response with status \(response.status) and \(response.body.data?.count ?? 0) bytes of body")

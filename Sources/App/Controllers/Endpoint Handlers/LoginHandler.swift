@@ -109,7 +109,10 @@ struct LoginHandler: EndpointHandler {
         let headers = HTTPHeaders([
             ("Content-Type", "application/json")
         ])
-        return Response(status: proxyResponse.status, headers: headers, body: responseBody)
+        return Response(status: proxyResponse.status, 
+                        version: req.version,
+                        headers: headers, 
+                        body: responseBody)
     }
     
 
