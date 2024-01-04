@@ -106,7 +106,10 @@ struct LoginHandler: EndpointHandler {
         proxyRequestBody.token = token
         let proxyResponse = try await req.client.post(homeserverURI, headers: req.headers, content: proxyRequestBody)
         let responseBody = Response.Body(buffer: proxyResponse.body ?? .init())
-        return Response(status: proxyResponse.status, headers: proxyResponse.headers, body: responseBody)
+        let headers = HTTPHeaders([
+            ("Content-Type", "application/json")
+        ])
+        return Response(status: proxyResponse.status, headers: headers, body: responseBody)
     }
     
 
