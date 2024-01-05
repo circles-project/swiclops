@@ -71,9 +71,14 @@ struct FreeSubscriptionChecker: AuthChecker {
                                              endDate: nil,
                                              familyShared: false)
         
-        req.logger.debug("Creating subscription record")
-        try await subscription.create(on: req.db)
-        req.logger.debug("Successfully created subscription record")
+        do {
+            req.logger.debug("Creating subscription record")
+            try await subscription.create(on: req.db)
+            req.logger.debug("Successfully created subscription record")
+        } catch {
+            req.logger.error("Failed to create subscription record: \(error)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to create subscription record")
+        }
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
