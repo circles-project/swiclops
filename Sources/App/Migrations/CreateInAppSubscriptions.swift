@@ -20,6 +20,7 @@ struct CreateInAppSubscriptions: AsyncMigration {
             .field("bundle_id", .string, .required)
             .field("start_date", .date, .required)
             .field("end_date", .date)
+            .field("family_shared", .bool, .required)
             .create()
     }
 
