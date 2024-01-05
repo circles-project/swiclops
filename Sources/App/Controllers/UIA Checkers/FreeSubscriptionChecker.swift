@@ -14,6 +14,12 @@ struct FreeSubscriptionChecker: AuthChecker {
     let AUTH_TYPE_FREE_SUBSCRIPTION = "org.futo.subscriptions.free_forever"
     let PROVIDER_FREE_FOREVER = "free_forever"
     let FREE_SUBSCRIPTION_PRODUCT_ID = "free_subscription"
+
+    var app: Application
+
+    init(app: Application) {
+        self.app = app
+    }
     
     func getSupportedAuthTypes() -> [String] {
         [AUTH_TYPE_FREE_SUBSCRIPTION]
@@ -67,21 +73,28 @@ struct FreeSubscriptionChecker: AuthChecker {
         
         req.logger.debug("Creating subscription record")
         try await subscription.create(on: req.db)
+        req.logger.debug("Successfully created subscription record")
     }
     
-    func isUserEnrolled(userId: String, authType: String) async -> Bool {
-        // Everyone can do Dummy auth.  It's auth for dummies!
-        return true
+    func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
+        let record = try await InAppSubscription.query(on: app.db)
+                                                .filter(\.$provider == PROVIDER_FREE_FOREVER)
+                                                .filter(\.$userId == userId)
+                                                .first()
+        if record != nil {
+            return true
+        } else {
+            return false
+        }
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        // If Dummy is enabled by the config, definitely include it in the advertised flow
         return true
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
-        // Can't unenroll from dummy auth, dummy.  :-)
-        // NOTE: We need to make this safe to call for ALL of our checkers...
+        // Can't unenroll from a free subscription
+        // Buuuuuut I'm not sure that we need to throw an error and fail the session if someone tries
         //throw Abort(.badRequest)
     }
     
