@@ -23,7 +23,7 @@ class SynapseAdminBackend: LifecycleHandler {
         self.sharedSecret = sharedSecret
     }
     
-    public func login(app: Application) async throws {
+    public func login(app: Application) async throws -> MatrixCredentials {
         
         // This only works if we have a MatrixConfig in the application's config
         guard let config = app.config
@@ -76,6 +76,8 @@ class SynapseAdminBackend: LifecycleHandler {
         app.logger.debug("Login success!")
         app.logger.debug("user_id: \(creds.userId)\tdevice_id: \(creds.deviceId)\taccess_token: \(creds.accessToken)")
         self.creds = creds
+
+        return creds
     }
     
     public func logout(app: Application) async throws {
@@ -111,7 +113,16 @@ class SynapseAdminBackend: LifecycleHandler {
     
     func didBoot(_ app: Application) throws {
         Task {
-            try await self.login(app: app)
+            var creds: MatrixCredentials?
+            repeat {
+                creds = try? await self.login(app: app)
+                if creds != nil {
+                    app.logger.debug("Logged in successfully")
+                } else {
+                    app.logger.debug("Login failed - Sleeping before retry")
+                    try await Task.sleep(for: .seconds(30))
+                }
+            } while creds == nil
         }
     }
     
@@ -123,12 +134,6 @@ class SynapseAdminBackend: LifecycleHandler {
 }
 
 extension Application {
-    
-    // FIXME: What we really need is app.admin.creds
-    //        And then we can have app.amin.login() and app.admin.logout() etc
-    //        And app.admin.config for its config ...
-    
-
     
     var admin: SynapseAdminBackend? {
         get {
