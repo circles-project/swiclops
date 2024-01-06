@@ -9,6 +9,7 @@ import Vapor
 import Fluent
 import FluentPostgresDriver
 import FluentSQLiteDriver
+import PostgresKit
 
 struct PostgresDatabaseConfig: Decodable {
     var hostname: String
@@ -16,6 +17,8 @@ struct PostgresDatabaseConfig: Decodable {
     var username: String
     var password: String
     var database: String
+    //var tls: TLS // cvw 2024-01-06: Omitting this for now because we don't need it yet and the type isn't Codable
+    typealias TLS = PostgresConnection.Configuration.TLS
     
     enum CodingKeys: String, CodingKey {
         case hostname
@@ -25,12 +28,19 @@ struct PostgresDatabaseConfig: Decodable {
         case database
     }
     
-    init(hostname: String?, port: Int?, username: String?, password: String?, database: String?) {
+    init(hostname: String?,
+         port: Int?,
+         username: String?,
+         password: String?,
+         database: String?
+         // tls: TLS?
+    ) {
         self.hostname = hostname ?? Environment.get("DATABASE_HOST") ?? "localhost"
-        self.port = port ?? Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? PostgresConfiguration.ianaPortNumber
+        self.port = port ?? Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber
         self.username = username ?? Environment.get("DATABASE_USERNAME") ?? "swiclops"
         self.password = password ?? Environment.get("DATABASE_PASSWORD") ?? "swiclops"
         self.database = database ?? Environment.get("DATABASE_NAME") ?? "swiclops"
+        //self.tls = tls ?? .disable
     }
 }
 

@@ -53,12 +53,13 @@ public func configure(_ app: Application) throws {
         app.databases.use(.sqlite(.file(sqliteConfig.filename)), as: .sqlite)
     case .postgres(let postgresConfig):
         app.logger.debug("Using Postgres database")
-        app.databases.use(.postgres(hostname: postgresConfig.hostname,
-                                    port: postgresConfig.port,
-                                    username: postgresConfig.username,
-                                    password: postgresConfig.password,
-                                    database: postgresConfig.database),
-                          as: .psql)
+        let config = SQLPostgresConfiguration(hostname: postgresConfig.hostname,
+                                              port: postgresConfig.port,
+                                              username: postgresConfig.username,
+                                              password: postgresConfig.password,
+                                              database: postgresConfig.database,
+                                              tls: .disable)
+        app.databases.use(.postgres(configuration: config), as: .psql)
     }
     
     // migrations
