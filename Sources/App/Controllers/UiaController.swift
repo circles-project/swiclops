@@ -48,6 +48,7 @@ struct UiaController: RouteCollection {
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         var passthruEndpoints: [Endpoint]?
+        var passthruLegacyLogin: Bool?
         
         struct UiaRoute: Codable {
             var path: String
@@ -65,6 +66,7 @@ struct UiaController: RouteCollection {
             case routes
             case defaultFlows = "default_flows"
             case passthruEndpoints = "passthru_endpoints"
+            case passthruLegacyLogin = "passthru_legacy_login"
         }
     }
     
@@ -144,9 +146,22 @@ struct UiaController: RouteCollection {
     private func handle(req: Request, for endpoint: Endpoint, with handler: EndpointHandler) async throws -> Response {
         let policyFlows = flows[endpoint] ?? defaultFlows
         
-        try await handleUIA(req: req, flows: policyFlows)
+        let response: Response
         
-        let response = try await handler.handle(req: req)
+        // Special case for /login
+        // Try to handle legacy Matrix m.login.password without UIA by proxying directly to the homeserver
+        // If we can make this work, then we can use existing Matrix tools like synapse-admin
+        if config.passthruLegacyLogin == true,
+           endpoint.path == "/login",
+           let loginRequestBody = try? req.content.decode(LoginRequestBody.self),
+           loginRequestBody.type == "m.login.password",
+           loginRequestBody.password != nil
+        {
+            response = try await self.passthruHandler.handle(req: req)
+        } else {
+            try await handleUIA(req: req, flows: policyFlows)
+            response = try await handler.handle(req: req)
+        }
         
         req.logger.debug("UIA Controller: Back from endpoint handler")
         req.logger.debug("UIA Controller: Got response = \(response.description)")
