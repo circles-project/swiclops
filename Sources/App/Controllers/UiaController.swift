@@ -157,6 +157,7 @@ struct UiaController: RouteCollection {
            loginRequestBody.type == "m.login.password",
            loginRequestBody.password != nil
         {
+            req.logger.debug("UIA Controller: Handling legacy login via passthru")
             response = try await self.passthruHandler.handle(req: req)
         } else {
             try await handleUIA(req: req, flows: policyFlows)
