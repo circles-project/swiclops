@@ -1,5 +1,6 @@
 Packages
 .build
+.vscode
 xcuserdata
 *.xcodeproj
 DerivedData/
