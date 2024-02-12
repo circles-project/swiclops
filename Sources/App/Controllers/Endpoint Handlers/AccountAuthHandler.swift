@@ -9,8 +9,10 @@ import Vapor
 
 struct AccountAuthHandler: EndpointHandler {
     var endpoints: [Endpoint] = [
-        .init(.POST, "/account/auth"),
         .init(.GET, "/account/auth"),
+        .init(.POST, "/account/auth"),
+        .init(.POST, "/account/auth/password"),
+        .init(.POST, "/account/auth/email"),
     ]
     
     var flows: [UiaFlow]
