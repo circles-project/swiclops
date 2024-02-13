@@ -10,7 +10,7 @@ import Fluent
 
 import AnyCodable
 
-let AUTH_TYPE_PLAYSTORE_SUBSCRIPTION = "org.futo.subscription.google_play"
+let AUTH_TYPE_PLAYSTORE_SUBSCRIPTION = "org.futo.subscriptions.google_play"
 
 struct PlayStoreSubscriptionChecker: AuthChecker {
     
