@@ -30,32 +30,12 @@ struct FreeSubscriptionChecker: AuthChecker {
         return [:]
     }
 
-    struct FreeSubscriptionRequest: Codable {
-        var auth: FreeSubscriptionAuthDict
-        struct FreeSubscriptionAuthDict: UiaAuthDict {
-            var session: String
-            var type: String
-            var subscriptionType: String
-
-            enum CodingKeys: String, CodingKey {
-                case session
-                case type
-                case subscriptionType = "subscription_type"
-            }
-        }
-    }
-    
     func check(req: Request, authType: String) async throws -> Bool {
         guard AUTH_TYPE_FREE_SUBSCRIPTION == authType,
-              let freeSubscriptionRequest = try? req.content.decode(FreeSubscriptionRequest.self)
+              let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
             req.logger.error("FreeSubscriptionChecker: Wrong auth type: \(authType)")
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid auth type: \(authType)")
-        }
-        let subscriptionType = freeSubscriptionRequest.auth.subscriptionType
-        guard subscriptionType == AUTH_TYPE_FREE_SUBSCRIPTION else {
-            req.logger.error("FreeSubscriptionChecker: Bad subscription type: \(subscriptionType)")
-            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid subscription type: \(subscriptionType)")
         }
 
         // For free subscriptions, it's easy to enroll.  Just submit the UIA request with this type at registration.
@@ -65,7 +45,7 @@ struct FreeSubscriptionChecker: AuthChecker {
             req.logger.debug("FreeSubscriptionChecker: Success!")
             return true
         } else {
-            let auth = freeSubscriptionRequest.auth
+            let auth = uiaRequest.auth
             let sessionId = auth.session
             let session = req.uia.connectSession(sessionId: sessionId)
 
