@@ -1,6 +1,6 @@
 //
 //  UIA.swift
-//  
+//
 //
 //  Created by Charles Wright on 3/24/22.
 //
@@ -23,21 +23,22 @@ struct UiaRequest: Content {
 
 struct UiaFlow: Content {
     var stages: [String]
+    var type: String? // Support for defining legacy flows
 }
 
 struct UiaIncomplete: AbortError {
     typealias Params = [String: [String: AnyCodable]]
-    
+
     struct Body: Content {
         var flows: [UiaFlow]
         var completed: [String]?
         var params: Params?
         var session: String
     }
-    
+
     let status: HTTPResponseStatus = .unauthorized
     var body: Body
-    
+
     init(flows: [UiaFlow], completed: [String]? = nil, params: Params? = nil, session: String) {
         self.body = Body(flows: flows, completed: completed, params: params, session: session)
     }
