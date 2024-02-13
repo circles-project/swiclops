@@ -11,9 +11,12 @@ import AnyCodable
 
 import AppStoreServerLibrary
 
+let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscriptions.apple_storekit_v2"
+
 struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
-    let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscriptions.apple_storekit_v2"
     let PROVIDER_APPLE_STOREKIT2 = "apple_storekit_v2"
+
+    var app: Application
 
     // MARK: config
     var config: Config
@@ -133,6 +136,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     // MARK: init
     
     init(app: Application, config: Config) {
+        self.app = app
         self.config = config
         
         let logger = app.logger
@@ -473,18 +477,51 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
-        throw Abort(.notImplemented)
+        guard authType == AUTH_TYPE_APPSTORE_SUBSCRIPTION
+        else {
+            return false
+        }
+        let now = Date()
+        let graceDays = config.gracePeriodDays ?? 0
+        let gracePeriod = TimeInterval(24*60*60*graceDays)
+        if let subscription = try await InAppSubscription.query(on: app.db)
+                                                         .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
+                                                         .filter(\.$userId == userId)
+                                                         .filter(\.$startDate < now)
+                                                         .filter(\.$endDate > now-gracePeriod)
+                                                         .first()
+        {
+            return true
+        } else {
+            return false
+        }
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        // Don't ever remove us from the flows -- If we're there, we're there for a reason!
-        // FIXME: If we're smart, we could actually use this to demand a renewal from users whose subscription has lapsed
-        //   * If the request is for /register, then yes we're required to be in the flow
+        // If we're smart, we will use this to demand a renewal from users whose subscription has lapsed
+        //   * If the request is for /register, then yes we're always required to be in the flow
+        //   * If the request is for /auth/subscription, then the user is explicitly asking to modify their subscription -- so keep us in the list
         //   * If the request is for /login, then we're only required for users whose subscription has lapsed
+        //   * If the request is for /refresh, then we're only required for users whose subscription has lapsed
         //   * If the request is for some other endpoint, then... why are we there in the first place???  Maybe for account recovery???
-        //     - Probably it's safest to return `true` if we're unsure what to do
-        //   ==> So really, it's only for /login where we might not be required.
-        return true
+        //   ==> So really, it's only for /register and /auth/subscription where we are always required
+
+        // We are always required for registration
+        if request.url.path.hasSuffix("/register") {
+            return true
+        }
+        // Don't take us out of the list if the user is explicitly trying to update their subscription
+        else if request.url.path.hasSuffix("/auth/subscription") {
+            return true
+        }
+        // This stage might not be required for other endpoints IF the user already has a valid subscription
+        else if try await isUserEnrolled(userId: userId, authType: authType) {
+            return false
+        }
+        // Otherwise keep us in the list, because either the user's subscription has lapsed, or they never had one
+        else {
+            return true
+        }
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
