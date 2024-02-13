@@ -102,6 +102,12 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         let subscriptionId = auth.subscriptionId
         let orderId = auth.orderId
         let token = auth.token
+
+        guard auth.type == AUTH_TYPE_PLAYSTORE_SUBSCRIPTION
+        else {
+            req.logger.error("Play Store checker: Invalid subscription type \(auth.type)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Invalid Play Store subscription type \(auth.type)")
+        }
         
         // First order of business: Are these valid parameters for our available subscriptions?
         if !config.productIds.contains(subscriptionId) {

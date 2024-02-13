@@ -180,6 +180,12 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let auth = storekitRequest.auth
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
+
+        guard auth.type == AUTH_TYPE_APPSTORE_SUBSCRIPTION
+        else {
+            req.logger.error("App Store checker: Invalid subscription type \(auth.type)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Invalid App Store subscription type \(auth.type)")
+        }
         
         guard let app = config.apps.first(where: { $0.bundleId == auth.bundleId })
         else {
