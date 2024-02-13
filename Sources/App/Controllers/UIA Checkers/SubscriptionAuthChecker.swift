@@ -74,22 +74,81 @@ struct SubscriptionAuthChecker: AuthChecker {
             req.logger.error("Subscription checker: Invalid request")
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Invalid subscription request")
         }
+        let auth = subscriptionRequest.auth
+        let sessionId = auth.session
+        let session = req.uia.connectSession(sessionId: sessionId)
 
-        let subscriptionType = subscriptionRequest.auth.subscriptionType
+        let subscriptionType = auth.subscriptionType
         guard let checker = self.checkers[subscriptionType]
         else {
+            req.logger.error("Subscription type \(subscriptionType) not supported")
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Subscription type not supported")
         }
 
-        return try await checker.check(req: req, authType: subscriptionType)
+        if try await checker.check(req: req, authType: subscriptionType) {
+            // Save the subscription type into the UIA session
+            await session.setData(for: AUTH_TYPE_FUTO_SUBSCRIPTIONS+".type", value: subscriptionType)
+            return true
+        } else {
+            return false
+        }
     }
     
     func onLoggedIn(req: Request, userId: String) async throws -> Void {
 
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self)
+        else {
+            req.logger.error("Subscription checker: Couldn't parse UIA request for onEnrolled()")
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
+        }
+        let auth = uiaRequest.auth
+        let sessionId = auth.session
+        let session = req.uia.connectSession(sessionId: sessionId)
+
+        if let type = await session.getData(for: AUTH_TYPE_FUTO_SUBSCRIPTIONS+".type") as? String {
+            guard let checker = self.checkers[type]
+            else {
+                req.logger.error("No subscription checker for \(type)")
+                throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No subscription checker for \(type)")
+            }
+            try await checker.onEnrolled(req: req, authType: type, userId: userId)
+        }
+        else {
+            // No subscription type - maybe we weren't required?
+            // Do nothing
+        }
     }
 
     func onEnrolled(req: Request, authType: String, userId: String) async throws -> Void {
+        guard authType == AUTH_TYPE_FUTO_SUBSCRIPTIONS
+        else {
+            req.logger.warning("Subscription checker: Invalid auth type \(authType)")
+            return
+        }
 
+        guard let uiaRequest = try? req.content.decode(UiaRequest.self)
+        else {
+            req.logger.error("Subscription checker: Couldn't parse UIA request for onEnrolled()")
+            throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
+        }
+        let auth = uiaRequest.auth
+        let sessionId = auth.session
+        let session = req.uia.connectSession(sessionId: sessionId)
+
+        guard let subscriptionType = await session.getData(for: AUTH_TYPE_FUTO_SUBSCRIPTIONS+".type") as? String
+        else {
+            req.logger.error("Couldn't get subscription type")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Could not determine subscription type")
+        }
+
+        guard let checker = self.checkers[subscriptionType]
+        else {
+            req.logger.error("No subscription checker for \(subscriptionType)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No subscription checker for \(subscriptionType)")
+        }
+
+        // NOTE: Careful to use the checker's type here, not our type
+        try await checker.onEnrolled(req: req, authType: subscriptionType, userId: userId)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {
