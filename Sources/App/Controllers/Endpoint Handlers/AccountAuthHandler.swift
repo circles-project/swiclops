@@ -13,6 +13,8 @@ struct AccountAuthHandler: EndpointHandler {
         .init(.POST, "/account/auth"),
         .init(.POST, "/account/auth/password"),
         .init(.POST, "/account/auth/email"),
+        .init(.POST, "/account/auth/subscription"),
+        .init(.POST, "/account/auth/recovery"),
     ]
     
     var flows: [UiaFlow]
