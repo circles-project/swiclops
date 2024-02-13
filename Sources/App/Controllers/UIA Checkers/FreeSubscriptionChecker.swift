@@ -27,24 +27,62 @@ struct FreeSubscriptionChecker: AuthChecker {
     }
     
     func getParams(req: Request, sessionId: String, authType: String, userId: String?) async throws -> [String : AnyCodable]? {
-        return nil
+        return [:]
+    }
+
+    struct FreeSubscriptionRequest: Codable {
+        struct FreeSubscriptionAuthDict: UiaAuthDict {
+            var session: String
+            var type: String
+            var subscriptionType: String
+
+            enum CodingKeys: String, CodingKey {
+                case session
+                case type
+                case subscriptionType = "subscription_type"
+            }
+        }
     }
     
     func check(req: Request, authType: String) async throws -> Bool {
         guard AUTH_TYPE_FREE_SUBSCRIPTION == authType,
-              let uiaRequest = try? req.content.decode(UiaRequest.self)
+              let freeSubscriptionRequest = try? req.content.decode(FreeSubscriptionRequest.self)
         else {
             req.logger.error("FreeSubscriptionChecker: Wrong auth type: \(authType)")
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid auth type: \(authType)")
         }
-        
-        guard uiaRequest.auth.type == AUTH_TYPE_FREE_SUBSCRIPTION else {
-            req.logger.error("FreeSubscriptionChecker: Bad auth type: \(authType) -- Doesn't match `authType` function parameter")
-            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid auth type: \(authType)")
+        let subscriptionType = freeSubscriptionRequest.auth.subscriptionType
+        guard subscriptionType == AUTH_TYPE_FREE_SUBSCRIPTION else {
+            req.logger.error("FreeSubscriptionChecker: Bad subscription type: \(subscriptionType)")
+            throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Invalid subscription type: \(subscriptionType)")
+        }
+
+        // For free subscriptions, it's easy to enroll.  Just submit the UIA request with this type at registration.
+        // But to authenticate any other request, you must already be enrolled with a free subscription on record in the database.
+
+        if req.url.path.hasSuffix("/register") {
+            req.logger.debug("FreeSubscriptionChecker: Success!")
+            return true
+        } else {
+            let auth = freeSubscriptionRequest.auth
+            let sessionId = auth.session
+            let session = req.uia.connectSession(sessionId: sessionId)
+
+            guard let userId = try await session.getUserId()
+            else {
+                req.logger.warning("No user id - Failing free subscription check")
+                return false
+            }
+
+            if isUserEnrolled(userId: userId, authType: AUTH_TYPE_FREE_SUBSCRIPTION) {
+                req.logger.debug("Free subscription check: Success for user \(userId)")
+                return true
+            } else {
+                req.logger.debug("Free subscription check: Fail: No known subscription for user \(userId)")
+                return false
+            }
         }
         
-        req.logger.debug("FreeSubscriptionChecker: Success!")
-        return true
     }
     
     func onLoggedIn(req: Request, userId: String) async throws {
@@ -95,7 +133,30 @@ struct FreeSubscriptionChecker: AuthChecker {
     }
     
     func isRequired(for userId: String, making request: Request, authType: String) async throws -> Bool {
-        return true
+        // We use this for the paid subscription types to enforce renewal for users whose subscription has lapsed
+        //   * If the request is for /register, then yes we're always required to be in the flow
+        //   * If the request is for /auth/subscription, then the user is explicitly asking to modify their subscription -- so normally we'd stay in the list.  But you can't modify a free forever subscription.  Hmmm....
+        //   * If the request is for /login, then we're only required for users whose subscription has lapsed
+        //   * If the request is for /refresh, then we're only required for users whose subscription has lapsed
+        //   * If the request is for some other endpoint, then... why are we there in the first place???  Maybe for account recovery???
+        //   ==> So really, it's only for /register and /auth/subscription where we are always required
+
+        // We are always required for registration
+        if request.url.path.hasSuffix("/register") {
+            return true
+        }
+        // Don't take us out of the list if the user is explicitly trying to update their subscription
+        else if request.url.path.hasSuffix("/auth/subscription") {
+            return true
+        }
+        // This stage might not be required for other endpoints IF the user already has a valid subscription
+        else if try await isUserEnrolled(userId: userId, authType: authType) {
+            return false
+        }
+        // Otherwise keep us in the list, because either the user's subscription has lapsed, or they never had one
+        else {
+            return true
+        }
     }
     
     func onUnenrolled(req: Request, userId: String) async throws {
