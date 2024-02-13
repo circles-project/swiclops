@@ -1,6 +1,6 @@
 //
 //  AuthController.swift
-//  
+//
 //
 //  Created by Charles Wright on 3/24/22.
 //
@@ -12,7 +12,7 @@ import AnyCodable
 
 struct UiaController: RouteCollection {
 
-    
+
     var app: Application
     var config: Config
     var homeserver: URL
@@ -23,11 +23,11 @@ struct UiaController: RouteCollection {
     var defaultFlows: [UiaFlow]
     var defaultProxyHandler: EndpointHandler
     var passthruHandler: PassthruHandler
-    
+
     // For remembering when a given client last completed UIA with us
     // This way, we can avoid bothering them again when they just authed for another request
     var cache: ShardedActorDictionary<MatrixUser,Date>
-    
+
     // MARK: Config
     struct Config: Codable {
         var appleAppStore: AppleStoreKitV2SubscriptionChecker.Config?
@@ -35,27 +35,27 @@ struct UiaController: RouteCollection {
         var email: EmailConfig
         var terms: TermsAuthChecker.Config?
         var googlePlayStore: PlayStoreSubscriptionChecker.Config?
-        
+
         var registration: RegistrationConfig
         struct RegistrationConfig: Codable {
             var sharedSecret: String
-            
+
             enum CodingKeys: String, CodingKey {
                 case sharedSecret = "shared_secret"
             }
         }
-        
+
         var routes: [UiaRoute]
         var defaultFlows: [UiaFlow]
         var passthruEndpoints: [Endpoint]?
         var passthruLegacyLogin: Bool?
-        
+
         struct UiaRoute: Codable {
             var path: String
             var method: HTTPMethod
             var flows: [UiaFlow]?
         }
-        
+
         enum CodingKeys: String, CodingKey {
             case appleAppStore = "apple_app_store"
             case bsspeke
@@ -69,17 +69,17 @@ struct UiaController: RouteCollection {
             case passthruLegacyLogin = "passthru_legacy_login"
         }
     }
-    
+
     // MARK: init
     init(app: Application, config: Config, matrixConfig: MatrixConfig) throws {
         self.app = app
         self.config = config
-        
+
         self.domain = matrixConfig.domain
         self.homeserver = matrixConfig.homeserver
-        
+
         self.cache = .init()
-        
+
         // Set up our map from endpoints to UIA flows
         self.defaultFlows = config.defaultFlows
         self.flows = [:]
@@ -87,7 +87,7 @@ struct UiaController: RouteCollection {
             let endpoint = Endpoint(route.method, route.path)
             self.flows[endpoint] = route.flows ?? defaultFlows
         }
-        
+
         // Set up our UIA checker modules
         let usernameChecker = try UsernameEnrollAuthChecker(app: app)
         var authCheckerModules: [AuthChecker] = [
@@ -100,25 +100,25 @@ struct UiaController: RouteCollection {
             BSSpekeAuthChecker(app: app, serverId: matrixConfig.domain, config: config.bsspeke),
             FreeSubscriptionChecker(app: app),
         ]
-        
+
         if let termsConfig = config.terms {
             authCheckerModules.append(TermsAuthChecker(app: app, config: termsConfig))
         }
-        
+
         if let googleConfig = config.googlePlayStore {
             authCheckerModules.append(PlayStoreSubscriptionChecker(app: app, config: googleConfig))
         }
         if let appleConfig = config.appleAppStore {
             authCheckerModules.append(AppleStoreKitV2SubscriptionChecker(app: app, config: appleConfig))
         }
-        
+
         self.checkers = [:]
         for module in authCheckerModules {
             for authType in module.getSupportedAuthTypes() {
                 self.checkers[authType] = module
             }
         }
-        
+
         // Set up our endpoint handlers, that take over after UIA is complete
         self.defaultProxyHandler = ProxyHandler(app: self.app)
         let loginHandler = LoginHandler(app: self.app,
@@ -141,13 +141,13 @@ struct UiaController: RouteCollection {
         self.passthruHandler = PassthruHandler(app: app, endpoints: self.config.passthruEndpoints ?? [])
 
     }
-    
+
     // MARK: handle
     private func handle(req: Request, for endpoint: Endpoint, with handler: EndpointHandler) async throws -> Response {
         let policyFlows = flows[endpoint] ?? defaultFlows
-        
+
         let response: Response
-        
+
         // Special case for /login
         // Try to handle legacy Matrix m.login.password without UIA by proxying directly to the homeserver
         // If we can make this work, then we can use existing Matrix tools like synapse-admin
@@ -163,7 +163,7 @@ struct UiaController: RouteCollection {
             try await handleUIA(req: req, flows: policyFlows)
             response = try await handler.handle(req: req)
         }
-        
+
         req.logger.debug("UIA Controller: Back from endpoint handler")
         req.logger.debug("UIA Controller: Got response = \(response.description)")
 
@@ -171,13 +171,13 @@ struct UiaController: RouteCollection {
         guard response.status == .ok else {
             return response
         }
-        
+
         // Did we just start a new session?
         // If so, add it to our UIA cache so the user won't have to re-auth immediately for things like cross-signing
         struct NewSessionResponse: Content {
             var userId: String
             var accessToken: String
-            
+
             enum CodingKeys: String, CodingKey {
                 case userId = "user_id"
                 case accessToken = "access_token"
@@ -188,13 +188,13 @@ struct UiaController: RouteCollection {
             let now = Date()
             await self.cache.set(user, now)
         }
-        
-        
+
+
         // Now run any callbacks, as necessary
         // We need to check for a couple of special conditions here:
         // 1. Did we just enroll for something or register a new user?
         // 2. Did we just log someone in?
-                        
+
         switch endpoint {
         case .init(.POST, "/register"),
              .init(.POST, "/account/auth"),
@@ -215,7 +215,7 @@ struct UiaController: RouteCollection {
                 req.logger.error("\(msg)")
                 throw MatrixError(status: .internalServerError, errcode: .unknown, error: msg)
             }
-            
+
             let completed = await session.getCompleted()
             //req.logger.debug("UIA Controller: Found completed stages: \(completed)")
             for stage in completed {
@@ -228,9 +228,18 @@ struct UiaController: RouteCollection {
                 //req.logger.debug("UIA Controller: Back from .onEnrolled() for \(stage)")
             }
             req.logger.debug("UIA Controller: Done with onEnrolled()")
-            
+
         case .init(.POST, "/login"):
             req.logger.debug("UIA Controller: Running post-login callbacks")
+
+            if config.passthruLegacyLogin == true,
+               let loginRequestBody = try? req.content.decode(LoginRequestBody.self),
+               loginRequestBody.type == "m.login.password",
+               loginRequestBody.password != nil
+            {
+                req.logger.debug("UIA Controller: Skipping post-processing due to passthru legacy login")
+                break;
+            }
 
             // Find all of the checkers that we just used
             // Call .onLoggedIn() for each of them
@@ -257,22 +266,22 @@ struct UiaController: RouteCollection {
             }
             req.logger.debug("UIA Controller: Done with onLoggedIn()")
 
-            
+
         default:
             req.logger.debug("UIA Controller: No special post-processing for \(endpoint)")
             break
         }
-        
+
         // Finally, after all that, now we can return the response that we received way up above
         return response
     }
-    
+
     // MARK: boot
     func boot(routes: RoutesBuilder) throws {
-        
+
         let matrixCSAPI = routes.grouped("_matrix", "client", ":version")
                                 .grouped(MatrixUserAuthenticator(homeserver: self.homeserver))
-        
+
         for (endpoint,handler) in handlers {
             matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
                 let path = endpoint.pathComponents.map { $0.description }.joined()
@@ -280,7 +289,7 @@ struct UiaController: RouteCollection {
                 return try await handle(req: req, for: endpoint, with: handler)
             }
         }
-        
+
         for (endpoint, policyFlows) in flows {
             // Are we already handling this endpoint ourselves above?
             if handlers[endpoint] == nil {
@@ -288,12 +297,12 @@ struct UiaController: RouteCollection {
                 // So we do the UIA, and then we proxy the request on to the real homeserver who can handle it.
                 matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
                     try await handleUIA(req: req, flows: policyFlows)
-                    
+
                     return try await defaultProxyHandler.handle(req: req)
                 }
             }
         }
-        
+
         if let passthruEndpoints = self.config.passthruEndpoints {
             for endpoint in passthruEndpoints {
                 matrixCSAPI.on(endpoint.method, endpoint.pathComponents) { (req) -> Response in
@@ -303,20 +312,20 @@ struct UiaController: RouteCollection {
         }
 
     }
-    
+
     // MARK: _getNewSessionID
     private func _getNewSessionID() -> String {
         let length = 12
         return String( (0 ..< length).map { _ in "0123456789".randomElement()! } )
     }
-    
+
     // MARK: canonicalizeUserId
     private func canonicalizeUserId(_ username: String) -> String {
         let firstPart = username.starts(with: "@") ? username : "@" + username
         let userId = firstPart.contains(":") ? firstPart : firstPart + ":" + domain
         return userId
     }
-    
+
     // MARK: getUserId
     public func getUserId(req: Request) async throws -> String? {
         // First look for a logged-in Matrix user with a Bearer token.
@@ -325,7 +334,7 @@ struct UiaController: RouteCollection {
             req.logger.debug("getUserId: Found user [\(authUser.userId)] in the Bearer token")
             return authUser.userId
         }
-        
+
         // Maybe the user is trying to log in, and they sent the user id in the request
         if let loginRequest = try? req.content.decode(LoginRequestBody.self) {
             if loginRequest.identifier.type == "m.id.user" {
@@ -337,7 +346,7 @@ struct UiaController: RouteCollection {
             }
             // FIXME: Add support for looking up user id from a 3pid like an email address
         }
-        
+
         // Maybe it's a new user trying to register
         if req.url.path.hasSuffix("/register") {
             // Now we are storing the username in the UIA session
@@ -359,15 +368,15 @@ struct UiaController: RouteCollection {
         req.logger.debug("getUserId: No user id in request")
         return nil
     }
-    
+
     // MARK: _getRequiredFlows
     private func _getRequiredFlows(flows: [UiaFlow], for user: String?, making request: Request) async throws -> [UiaFlow] {
-        
+
         guard let userId = user else {
             // IF we don't know who you are, then everything is always required
             return flows
         }
-        
+
         // FIXME This is where we should figure out the set of flows that we should advertise for this user and this endpoint
         //       1. The user may not be enrolled for every possible auth type
         //          - e.g. suppose we offer both BS-SPEKE and OPAQUE password login
@@ -400,7 +409,7 @@ struct UiaController: RouteCollection {
         if enrolledFlows.isEmpty {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "No authentication flows")
         }
-        
+
         // Now we should do a second pass to remove any stages that are not required for this user
         var requiredFlows = [UiaFlow]()
         for flow in enrolledFlows {
@@ -415,20 +424,20 @@ struct UiaController: RouteCollection {
             }
             requiredFlows.append( UiaFlow(stages: requiredStages) )
         }
-        
+
         return requiredFlows
     }
-    
+
     // MARK: handleUIA
 
     // FIXME Find a better way to cache the list of actually required & useful flows inside the UIA session
     func handleUIA(req: Request, flows: [UiaFlow]) async throws {
-                        
+
         // FIXME: Add an early check -- Has this user, with this access token, recently authenticated with us?
         //        It should be a very quick thing, like 30 seconds
         //        But if so, don't bother them again so soon.  Just return success.
         // NOTE: Don't return too early -- If the flows contain an "enroll" stage, we NEED to run UIA regardless of whether we've recently authed or not
-        
+
         // First check -- Is this a "normal" UIA request for a logged-in user, and not a login or registration etc?
         if let user = req.auth.get(MatrixUser.self) {
             // Second check -- Has the user recently completed UIA with us?
@@ -460,17 +469,17 @@ struct UiaController: RouteCollection {
                 }
             }
         }
-        
+
         // Try to find the user id for this request, which may be encoded in different places depending on the type of request
         let userId = try await getUserId(req: req)
-                
+
         // Does this request already have a session associated with it?
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
             // No existing UIA structure -- Usually we will return a HTTP 401 with an initial UIA JSON response
             // *** One exception to this rule: If the required flows are empty, return success
             //     And to determine whether the required flows are empty, we need to look at each stage in each flow
-            
+
             let requiredFlows = try await _getRequiredFlows(flows: flows, for: userId, making: req)
 
             // If there are no flows required for this request, we're done
@@ -488,17 +497,17 @@ struct UiaController: RouteCollection {
                     return
                 }
             }
-            
+
             // Ok if our flows are non-empty, then the client really does have some work to do
             // Set up for UIA and let the client know what is required
-            
+
             req.logger.debug("Request has no UIA session")
             let sessionId = _getNewSessionID()
             let session = req.uia.connectSession(sessionId: sessionId)
-            
+
             // Save the set of required flows in the UIA session state -- We definitely don't want to calculate it again for every request in the session
             await session.setData(for: "required_flows", value: requiredFlows)
-            
+
             var params: [String: [String: AnyCodable]] = [:]
             for flow in requiredFlows {
                 for stage in flow.stages {
@@ -507,15 +516,15 @@ struct UiaController: RouteCollection {
                     }
                 }
             }
-            
+
             req.logger.debug("Throwing UiaIncomplete error")
             throw UiaIncomplete(flows: requiredFlows, params: params, session: sessionId)
         }
-        
+
         let auth = uiaRequest.auth
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
-        
+
         // We have the user_id that we extracted above.  Store it in the request's UIA session where all of the checkers can find it.
         if let u = userId {
             req.logger.debug("UIA Controller: Request is from user_id [\(u)]")
@@ -523,7 +532,7 @@ struct UiaController: RouteCollection {
         } else {
             req.logger.debug("UIA Controller: No user id")
         }
-        
+
         guard let requiredFlows = await session.getData(for: "required_flows") as? [UiaFlow]
         else {
             req.logger.error("UIA Controller: Couldn't find required flows for UIA session")
@@ -543,7 +552,7 @@ struct UiaController: RouteCollection {
             req.logger.error("UIA Controller: Invalid auth type \(authType)")
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Invalid auth type \(authType)")
         }
-        
+
         /*
         // For multi-stage authentication methods like BS-SPEKE, we *must* allow the user to complete the first stage multiple times
         // When the 2nd stage fails, e.g. the user mis-typed their password, the user has to go back and do both stages.
@@ -554,7 +563,7 @@ struct UiaController: RouteCollection {
             throw MatrixError(status: .forbidden, errcode: .invalidParam, error: "Authentication stage \(authType) has already been completed")
         }
         */
-        
+
         guard let checker = self.checkers[authType]
         else {
             // Uh oh, we screwed up and we don't have a checker for an auth type that we advertised.  Doh!
@@ -563,8 +572,8 @@ struct UiaController: RouteCollection {
             req.logger.error("UIA Controller: No checker found for requested auth type: \(authType)")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "No checker found for auth type \(authType)")
         }
-        
-        
+
+
         // We don't want the optional try here, because it "consumes" the thrown exception instead of sending the Matrix error response back to the client.
         // Instead we want the regular try, which will let the checker generate a MatrixError for our Middlware to send.
         let success = try await checker.check(req: req, authType: authType)
@@ -589,17 +598,17 @@ struct UiaController: RouteCollection {
                     // Yay we're done with UIA
                     // Let's get out of here -- Let the main handler do whatever it needs to do with the "real" request
                     req.logger.debug("UIA controller: Yay we're done with UIA.  Completed flow = \(flow.stages)")
-                    
+
                     // Save the current timestamp in our cache, in case the same client needs to hit another UIA endpoint in the next few seconds
                     if let user = req.auth.get(MatrixUser.self) {
                         let now = Date()
                         await self.cache.set(user, now)
                     }
-                    
+
                     return
                 }
             }
-            
+
             // We're still here, so we must not be done yet
             // Therefore we have more UIA stages left to go
             // Get their parameters for the UIA response
@@ -612,13 +621,13 @@ struct UiaController: RouteCollection {
                     }
                 }
             }
-            
+
             throw UiaIncomplete(flows: requiredFlows, completed: completed, params: newParams, session: sessionId)
-            
+
         } else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Authentication failed for type \(authType)")
         }
-        
-        
+
+
     }
 }
