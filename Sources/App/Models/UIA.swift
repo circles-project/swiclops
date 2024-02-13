@@ -21,9 +21,8 @@ struct UiaRequest: Content {
     var auth: AuthDict
 }
 
-struct UiaFlow: Content {
+struct UiaFlow: AuthFlow {
     var stages: [String]
-    var type: String? // Support for defining legacy flows
 }
 
 struct UiaIncomplete: AbortError {
