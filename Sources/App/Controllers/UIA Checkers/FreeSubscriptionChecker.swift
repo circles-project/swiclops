@@ -31,6 +31,7 @@ struct FreeSubscriptionChecker: AuthChecker {
     }
 
     struct FreeSubscriptionRequest: Codable {
+        var auth: FreeSubscriptionAuthDict
         struct FreeSubscriptionAuthDict: UiaAuthDict {
             var session: String
             var type: String
@@ -68,13 +69,13 @@ struct FreeSubscriptionChecker: AuthChecker {
             let sessionId = auth.session
             let session = req.uia.connectSession(sessionId: sessionId)
 
-            guard let userId = try await session.getUserId()
+            guard let userId = try await session.getData(for: "user_id") as? String
             else {
                 req.logger.warning("No user id - Failing free subscription check")
                 return false
             }
 
-            if isUserEnrolled(userId: userId, authType: AUTH_TYPE_FREE_SUBSCRIPTION) {
+            if try await isUserEnrolled(userId: userId, authType: AUTH_TYPE_FREE_SUBSCRIPTION) {
                 req.logger.debug("Free subscription check: Success for user \(userId)")
                 return true
             } else {
