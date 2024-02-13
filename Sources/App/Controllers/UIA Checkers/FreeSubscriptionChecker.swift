@@ -10,8 +10,9 @@ import Fluent
 
 import AnyCodable
 
+let AUTH_TYPE_FREE_SUBSCRIPTION = "org.futo.subscriptions.free_forever"
+
 struct FreeSubscriptionChecker: AuthChecker {
-    let AUTH_TYPE_FREE_SUBSCRIPTION = "org.futo.subscriptions.free_forever"
     let PROVIDER_FREE_FOREVER = "free_forever"
     let FREE_SUBSCRIPTION_PRODUCT_ID = "free_subscription"
 
