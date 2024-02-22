@@ -65,6 +65,48 @@ struct EmailAuthChecker: AuthChecker {
             EmailAuthChecker.LOGIN_SUBMIT_TOKEN
         ]
     }
+
+    private func censorString(_ string: String) -> String? {
+        if string.count < 1 {
+            return nil
+        } else if string.count == 1 {
+            return "*"
+        } else if string.count == 2 {
+            return "**"
+        } else if let first = string.first, 
+                  let last = string.last
+        {
+            let stars = Array(repeating: Character("*"), count: string.count-2)
+            return "\(first)\(stars)\(last)"
+        } else {
+            // wtf?
+            return nil
+        }
+    }
+
+    private func censorEmailAddress(_ email: String) -> String? {
+        let toks = email.split(separator: "@")
+        guard toks.count == 2,
+            let userPart = toks.first,
+            let domainPart = toks.last
+        else { return nil }
+
+        guard let censoredUserPart = censorString(String(userPart))
+        else { return nil }
+
+        let subdomains = domainPart.split(separator: ".")
+        guard subdomains.count > 1
+        else { return nil }
+
+        guard let tld = subdomains.last
+        else { return nil }
+
+        let domainString = subdomains.dropLast(1).joined(separator: ".")
+        guard let censoredDomainString = censorString(domainString)
+        else { return nil }
+
+        return censoredUserPart + "@" + censoredDomainString + "." + String(tld)
+    }
     
     func getParams(req: Request,
                    sessionId: String,
@@ -79,14 +121,15 @@ struct EmailAuthChecker: AuthChecker {
             
             guard let userId = maybeUserId else {
                 // If we're trying to log in, we'd better know who the user is
-                throw Abort(.internalServerError)
+                req.logger.warning("Can't get email login params without a user id")
+                return ["addresses": [:]]
             }
             
             let emailAddressRecords = try await UserEmailAddress
                                                     .query(on: req.db)
                                                     .filter(\.$userId == userId)
                                                     .all()
-            let emailAddresses = emailAddressRecords.map { $0.email }
+            let emailAddresses = emailAddressRecords.compactMap { censorEmailAddress($0.email) }
             
             return ["addresses": AnyCodable(emailAddresses)]
             
