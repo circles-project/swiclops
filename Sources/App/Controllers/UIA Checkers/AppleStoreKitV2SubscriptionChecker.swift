@@ -112,7 +112,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     //     * offerIdentifier
     
     // MARK: Request struct
-    struct StoreKitV2Request: Content {
+    struct StoreKitV2UiaRequest: Content {
         struct AuthDict: UiaAuthDict {
             var type: String
             var session: String
@@ -173,7 +173,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     // MARK: check
     
     func check(req: Request, authType: String) async throws -> Bool {
-        guard let storekitRequest = try? req.content.decode(StoreKitV2Request.self)
+        guard let storekitRequest = try? req.content.decode(StoreKitV2UiaRequest.self)
         else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request for \(AUTH_TYPE_APPSTORE_SUBSCRIPTION)")
         }
