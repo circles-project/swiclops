@@ -42,6 +42,7 @@ struct AppStoreNotificationHandler: EndpointHandler {
         }
 
         // If we're still here, then none of our verifiers could verify the signature
+        req.logger.error("App Store notification: No verifier could verify signed payload")
         throw Abort(.internalServerError)
     }
 
@@ -58,7 +59,7 @@ struct AppStoreNotificationHandler: EndpointHandler {
 
         guard payload.version == "2.0"
         else {
-            req.logger.error("App Store notification: Invalid version \(payload.version) -- should be \"2.0\"")
+            req.logger.error("App Store notification: Invalid version \(payload.version ?? "(none)") -- should be \"2.0\"")
             throw MatrixError(status: .badRequest, errcode: .invalidParam, error: "Bad payload version")
         }
 
@@ -90,7 +91,7 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.notImplemented)
 
             case .didRenew:
-                throw Abort(.notImplemented)
+                return try await handleDidRenew(data: data, for: req)
 
             case .expired:
                 throw Abort(.notImplemented)
@@ -134,6 +135,59 @@ struct AppStoreNotificationHandler: EndpointHandler {
         // If we're still here then everything must have gone OK so far
         // Return success
         return try await HTTPResponseStatus.ok.encodeResponse(for: req)
+    }
+    
+    func handleDidRenew(data: NotificationData, for req: Request) async throws -> Response {
+        req.logger.debug("App Store notification: Handling didRenew")
+        guard let bundleId = data.bundleId,
+                let environment = data.environment,
+                let verifier = getVerifier(bundleId: bundleId, environment: environment)
+        else {
+            req.logger.error("App Store notification: Can't get verifier for renewal notification")
+            throw Abort(.internalServerError)
+        }
+        
+        guard let signedRenewalInfo = data.signedRenewalInfo
+        else {
+            req.logger.error("App Store notification: No renewal info for renewal notification")
+            throw Abort(.internalServerError)
+        }
+        
+        let verificationResult = await verifier.verifyAndDecodeRenewalInfo(signedRenewalInfo: signedRenewalInfo)
+
+        switch verificationResult {
+        case .invalid(let error):
+            req.logger.error("App Store notification: Failed to verify signed renewal info: \(error)")
+            throw Abort(.badRequest)
+        case .valid(let renewalInfoPayload):
+            let payload: JWSRenewalInfoDecodedPayload = renewalInfoPayload // For Xcode "jump to definition"
+            
+            let now = Date()
+            
+            guard let originalTransactionId = payload.originalTransactionId,
+                  let productId = payload.autoRenewProductId,
+                  let renewalDate = payload.renewalDate
+            else {
+                req.logger.error("App Store notification: Could not get required info")
+                throw Abort(.badRequest)
+            }
+            
+            guard renewalDate > now
+            else {
+                req.logger.error("App Store notification: Renewal date is in the past")
+                throw Abort(.internalServerError)
+            }
+            
+            // Update all of our currently active subscriptions that have the given original transaction id
+            try await InAppSubscription.query(on: req.db)
+                                       .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
+                                       .filter(\.$originalTransactionId == originalTransactionId)
+                                       .filter(\.$endDate > now)
+                                       .set(\.$endDate, to: renewalDate)
+                                       .update()
+            
+            return try await OK(for: req)
+        }
     }
 
     func handleSubscribed(data: NotificationData, for req: Request) async throws -> Response {
