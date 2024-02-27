@@ -6,7 +6,7 @@ import AppStoreServerLibrary
 
 let APP_STORE_NOTIFICATION_PATH = "/_swiclops/subscriptions/apple/:version/notify"
 
-struct AppStoreSubscriptionHandler: EndpointHandler {
+struct AppStoreNotificationHandler: EndpointHandler {
     typealias Environment = AppStoreServerLibrary.Environment
     typealias NotificationData = AppStoreServerLibrary.Data    // FFS Apple you could at least try to pick names that don't clash with Foundation
 
