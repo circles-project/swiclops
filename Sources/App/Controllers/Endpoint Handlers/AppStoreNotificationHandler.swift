@@ -82,7 +82,8 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.notImplemented)
 
             case .didChangeRenewalPref:
-                throw Abort(.notImplemented)
+                // User changed their subscription level
+                return try await handleDidChangeRenewalPref(data: data, subtype: payload.subtype, for: req)
 
             case .didChangeRenewalStatus:
                 throw Abort(.notImplemented)
@@ -91,13 +92,15 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.notImplemented)
 
             case .didRenew:
-                return try await handleDidRenew(data: data, for: req)
+            return try await handleDidRenew(data: data, subtype: payload.subtype, for: req)
 
             case .expired:
-                throw Abort(.notImplemented)
+                // TODO: Send the user an email to remind them they need to renew
+                return try await OK(for: req)
 
             case .gracePeriodExpired:
-                throw Abort(.notImplemented)
+                // TODO: Send the user an email to let them know their account is now inactive
+                return try await OK(for: req)
 
             case .offerRedeemed:
                 throw Abort(.notImplemented)
@@ -124,9 +127,10 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.notImplemented)
 
             case .subscribed:
-                return try await handleSubscribed(data: data, for: req)
+                return try await handleSubscribed(data: data, subtype: payload.subtype, for: req)
             case .test:
                 req.logger.debug("App Store notification is a test")
+                return try await OK(for: req)
 
             default:
                 req.logger.debug("App Store notification - Not handling notification of type \(notificationType)")
@@ -134,10 +138,46 @@ struct AppStoreNotificationHandler: EndpointHandler {
 
         // If we're still here then everything must have gone OK so far
         // Return success
-        return try await HTTPResponseStatus.ok.encodeResponse(for: req)
+        return try await OK(for: req)
     }
     
-    func handleDidRenew(data: NotificationData, for req: Request) async throws -> Response {
+    /*
+        DID_CHANGE_RENEWAL_PREF
+        A notification type that, along with its subtype, indicates that the user made a change to their subscription plan. If the subtype is UPGRADE, the user upgraded their subscription. The upgrade goes into effect immediately, starting a new billing period, and the user receives a prorated refund for the unused portion of the previous period. If the subtype is DOWNGRADE, the user downgraded their subscription. Downgrades take effect at the next renewal date and don’t affect the currently active plan.
+    
+        If the subtype is empty, the user changed their renewal preference back to the current subscription, effectively canceling a downgrade.
+     */
+    func handleDidChangeRenewalPref(data: NotificationData,
+                                    subtype: Subtype?,
+                                    for req: Request
+    ) async throws -> Response {
+        req.logger.debug("App Store notification: Handling didChangeRenewalPref")
+        guard let bundleId = data.bundleId,
+              let environment = data.environment,
+              let verifier = getVerifier(bundleId: bundleId, environment: environment)
+        else {
+            req.logger.error("App Store notification: Can't get verifier for renewal notification")
+            throw Abort(.internalServerError)
+        }
+        
+        // TODO: Handle upgrades immediately
+        
+        // TODO: Handle downgrades by creating a new subscription record
+        
+        return try await OK(for: req)
+    }
+    
+    /*
+        DID_RENEW
+        A notification type that, along with its subtype, indicates that the subscription successfully renewed. If the subtype is BILLING_RECOVERY, the expired subscription that previously failed to renew has successfully renewed. If the substate is empty, the active subscription has successfully auto-renewed for a new transaction period. Provide the customer with access to the subscription’s content or service.
+     
+        BILLING_RECOVERY
+        Applies to the DID_RENEW notificationType. A notification with this subtype indicates that the expired subscription that previously failed to renew has successfully renewed.
+     */
+    func handleDidRenew(data: NotificationData,
+                        subtype: Subtype?,
+                        for req: Request
+    ) async throws -> Response {
         req.logger.debug("App Store notification: Handling didRenew")
         guard let bundleId = data.bundleId,
                 let environment = data.environment,
@@ -178,19 +218,41 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.internalServerError)
             }
             
-            // Update all of our currently active subscriptions that have the given original transaction id
-            try await InAppSubscription.query(on: req.db)
-                                       .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
-                                       .filter(\.$originalTransactionId == originalTransactionId)
-                                       .filter(\.$endDate > now)
-                                       .set(\.$endDate, to: renewalDate)
-                                       .update()
+            // Find all currently active subscriptions with the given original transaction id
+            let activeSubscriptions = try await InAppSubscription.query(on: req.db)
+                                                                 .filter(\.$provider == PROVIDER_APPLE_STOREKIT2)
+                                                                 .filter(\.$originalTransactionId == originalTransactionId)
+                                                                 .filter(\.$startDate < now)
+                                                                 .filter(\.$endDate > now)
+                                                                 .filter(\.$endDate < renewalDate)
+                                                                 .all()
+            // Create a new subscription
+            let newSubscriptions = activeSubscriptions.compactMap {
+                InAppSubscription(userId: $0.userId,
+                                  provider: PROVIDER_APPLE_STOREKIT2,
+                                  productId: productId,
+                                  transactionId: "???",
+                                  originalTransactionId: originalTransactionId,
+                                  bundleId: bundleId,
+                                  startDate: $0.endDate!,
+                                  endDate: renewalDate,
+                                  familyShared: $0.familyShared)
+            }
+            
+            try await newSubscriptions.create(on: req.db)
             
             return try await OK(for: req)
         }
     }
 
-    func handleSubscribed(data: NotificationData, for req: Request) async throws -> Response {
+    /*
+        SUBSCRIBED
+        A notification type that, along with its subtype, indicates that the user subscribed to a product. If the subtype is INITIAL_BUY, the user either purchased or received access through Family Sharing to the subscription for the first time. If the subtype is RESUBSCRIBE, the user resubscribed or received access through Family Sharing to the same subscription or to another subscription within the same subscription group.
+     */
+    func handleSubscribed(data: NotificationData,
+                          subtype: Subtype?,
+                          for req: Request
+    ) async throws -> Response {
         guard let bundleId = data.bundleId,
                 let environment = data.environment,
                 let verifier = getVerifier(bundleId: bundleId, environment: environment)
@@ -216,9 +278,12 @@ struct AppStoreNotificationHandler: EndpointHandler {
         let transaction: JWSTransactionDecodedPayload = transactionPayload
 
         guard let originalTransactionId = transaction.originalTransactionId,
-                let transactionId = transaction.transactionId,
-                let identifier = transaction.appAccountToken,
-                let expirationDate = transaction.expiresDate
+              let transactionId = transaction.transactionId,
+              let productId = transaction.productId,
+              let appAccountToken = transaction.appAccountToken,
+              let purchaseDate = transaction.purchaseDate,
+              let expirationDate = transaction.expiresDate,
+              let ownershipType = transaction.inAppOwnershipType
         else {
             req.logger.error("App Store notification: Could not get transaction information")
             throw Abort(.badRequest)
@@ -227,7 +292,9 @@ struct AppStoreNotificationHandler: EndpointHandler {
         req.logger.debug("App Store notification: User subscribed with transaction id \(transactionId) and original transaction id \(originalTransactionId)")
 
         // NOTE: We don't really have to do anything here?
-        //       This one was mostly for practice...
+        //       When the user subscribes we need their client to send us their signed transaction in a UIA flow, and we will set up their account at that time
+        //       Even for re-subscribe, we don't know which former accounts should be re-activated.  So we wait for their clients to connect and tell us.
+        //       Turns out this one was mostly for practice...
         return try await OK(for: req)
     }
 
