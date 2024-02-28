@@ -86,13 +86,16 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 return try await handleDidChangeRenewalPref(data: data, subtype: payload.subtype, for: req)
 
             case .didChangeRenewalStatus:
-                throw Abort(.notImplemented)
+                // Not much for us to do here -- the user changed their mind about whether they want to auto-renew
+                // In the future we could send them a special offer if they decided to stop renewing...
+                return try await OK(for: req)
 
             case .didFailToRenew:
-                throw Abort(.notImplemented)
-
+                // TODO: Send the user an email to let them know that their renewal failed
+                return try await OK(for: req)
+            
             case .didRenew:
-            return try await handleDidRenew(data: data, subtype: payload.subtype, for: req)
+                return try await handleDidRenew(data: data, subtype: payload.subtype, for: req)
 
             case .expired:
                 // TODO: Send the user an email to remind them they need to renew
@@ -103,12 +106,17 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 return try await OK(for: req)
 
             case .offerRedeemed:
-                throw Abort(.notImplemented)
+                // We don't do offers yet
+                return try await OK(for: req)
 
             case .priceIncrease:
-                throw Abort(.notImplemented)
+                // The system has informed the user about a price increase
+                // Nothing for us to do yet right now
+                return try await OK(for: req)
 
             case .refund:
+                // The App Store refunded the user's money
+                // Nuke their account
                 throw Abort(.notImplemented)
 
             case .refundDeclined:
@@ -124,7 +132,8 @@ struct AppStoreNotificationHandler: EndpointHandler {
                 throw Abort(.notImplemented)
 
             case .revoke:
-                throw Abort(.notImplemented)
+                // The purchaser canceled family sharing, or the user left the family group - ouch!
+                return try await handleRevoke(data: data, subtype: payload.subtype, for: req)
 
             case .subscribed:
                 return try await handleSubscribed(data: data, subtype: payload.subtype, for: req)
@@ -141,6 +150,7 @@ struct AppStoreNotificationHandler: EndpointHandler {
         return try await OK(for: req)
     }
     
+    // MARK: did change renewal pref
     /*
         DID_CHANGE_RENEWAL_PREF
         A notification type that, along with its subtype, indicates that the user made a change to their subscription plan. If the subtype is UPGRADE, the user upgraded their subscription. The upgrade goes into effect immediately, starting a new billing period, and the user receives a prorated refund for the unused portion of the previous period. If the subtype is DOWNGRADE, the user downgraded their subscription. Downgrades take effect at the next renewal date and don’t affect the currently active plan.
@@ -167,6 +177,7 @@ struct AppStoreNotificationHandler: EndpointHandler {
         return try await OK(for: req)
     }
     
+    // MARK: did renew
     /*
         DID_RENEW
         A notification type that, along with its subtype, indicates that the subscription successfully renewed. If the subtype is BILLING_RECOVERY, the expired subscription that previously failed to renew has successfully renewed. If the substate is empty, the active subscription has successfully auto-renewed for a new transaction period. Provide the customer with access to the subscription’s content or service.
@@ -245,6 +256,19 @@ struct AppStoreNotificationHandler: EndpointHandler {
         }
     }
 
+    // MARK: revoke
+    /*
+        REVOKE
+        A notification type that indicates that an in-app purchase the user was entitled to through Family Sharing is no longer available through sharing. The App Store sends this notification when a purchaser disables Family Sharing for their purchase, the purchaser (or family member) leaves the family group, or the purchaser receives a refund.
+     */
+    func handleRevoke(data: NotificationData,
+                      subtype: Subtype?,
+                      for req: Request
+    ) async throws -> Response {
+        throw Abort(.notImplemented)
+    }
+    
+    // MARK: subscribed
     /*
         SUBSCRIBED
         A notification type that, along with its subtype, indicates that the user subscribed to a product. If the subtype is INITIAL_BUY, the user either purchased or received access through Family Sharing to the subscription for the first time. If the subtype is RESUBSCRIBE, the user resubscribed or received access through Family Sharing to the same subscription or to another subscription within the same subscription group.
