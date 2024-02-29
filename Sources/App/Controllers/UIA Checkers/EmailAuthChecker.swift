@@ -149,6 +149,7 @@ struct EmailAuthChecker: AuthChecker {
     func _handleRequestToken(req: Request, authType: String) async throws -> Bool {
         guard let uiaRequest = try? req.content.decode(RequestTokenUiaRequest.self)
         else {
+            req.logger.error("Email UIA: Failed to parse UIA request")
             throw Abort(.badRequest)
         }
         
@@ -160,8 +161,9 @@ struct EmailAuthChecker: AuthChecker {
         if authType == EmailAuthChecker.LOGIN_REQUEST_TOKEN {
             // Ok we're trying to log in some user.  Who is it?
             let session = req.uia.connectSession(sessionId: auth.session)
-            guard let userId = await session.getData(for: "m.user.id") as? String else {
-                // The top-level handler should have
+            guard let userId = await session.getData(for: "user_id") as? String else {
+                // The top-level handler should have set the user id if we have one
+                req.logger.error("Email UIA: Failed to get user id")
                 throw Abort(.internalServerError)
             }
             
@@ -172,6 +174,7 @@ struct EmailAuthChecker: AuthChecker {
                                            .first()
             else {
                 // User is not enrolled with this address
+                req.logger.error("Email UIA: User \(user_id) is not enrolled with email address \(userEmail)")
                 throw Abort(.badRequest)
             }
         } else {
