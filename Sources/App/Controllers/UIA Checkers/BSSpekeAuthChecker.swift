@@ -339,11 +339,15 @@ struct BSSpekeAuthChecker: AuthChecker {
         }
     }
     
-    func onLoggedIn(req: Request, userId: String) async throws {
-        // Do nothing
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+        try await self.onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        try await self.onSuccess(req: req, authType: authType, userId: userId)
+    }
+
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
         guard authType == ENROLL_SAVE else {
             req.logger.debug("BS-SPEKE: onEnroll() for non-\(ENROLL_SAVE) -- doing nothing")
             return

@@ -178,7 +178,7 @@ struct PasswordAuthChecker: AuthChecker {
         return true
     }
     
-    func onLoggedIn(req: Request, userId: String) async throws {
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
         // Do nothing
     }
     

@@ -261,7 +261,7 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
                                  familyShared: false) // FIXME: Figure out how to tell if a Play Store subscription is family shared
     }
     
-    func onLoggedIn(req: Request, userId: String) async throws {
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
         // Do nothing
     }
     

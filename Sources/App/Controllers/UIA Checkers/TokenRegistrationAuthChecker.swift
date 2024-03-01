@@ -100,7 +100,7 @@ struct TokenRegistrationAuthChecker: AuthChecker {
         return true
     }
     
-    func onLoggedIn(req: Request, userId: String) async throws {
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
         // Do nothing
         // FIXME: Actually maybe we should throw an error here -- Using a registration token to log in is just weird
     }

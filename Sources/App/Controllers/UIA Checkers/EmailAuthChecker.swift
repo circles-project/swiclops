@@ -174,7 +174,7 @@ struct EmailAuthChecker: AuthChecker {
                                            .first()
             else {
                 // User is not enrolled with this address
-                req.logger.error("Email UIA: User \(user_id) is not enrolled with email address \(userEmail)")
+                req.logger.error("Email UIA: User \(userId) is not enrolled with email address \(userEmail)")
                 throw Abort(.badRequest)
             }
         } else {
@@ -288,7 +288,7 @@ struct EmailAuthChecker: AuthChecker {
         }
     }
     
-    func onLoggedIn(req: Request, userId: String) async throws {
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
         // Do nothing
     }
     
