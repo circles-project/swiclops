@@ -217,7 +217,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         else {
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "User is not enrolled for BS-SPEKE auth")
         }
-        
+
         let P = try _b64decode(dbRecord.P)
         let V = try _b64decode(dbRecord.V)
         
@@ -263,27 +263,22 @@ struct BSSpekeAuthChecker: AuthChecker {
         let sessionId = auth.session
         let session = req.uia.connectSession(sessionId: sessionId)
         
-        /* // Apparently this isn't actually needed here...
-        guard let userId = await session.getData(for: "m.user.id") as? String
-        else {
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Couldn't find user id for BS-SPEKE verification")
-        }
-        */
-        
         guard let bss = await session.getData(for: LOGIN_VERIFY+".state") as? BlindSaltSpeke.ServerSession,
               let Vstring = await session.getData(for: LOGIN_VERIFY+".V") as? String
         else {
             req.logger.debug("BS-SPEKE: Must complete OPRF stage before attempting BS-SPEKE verification")
             throw MatrixError(status: .forbidden, errcode: .forbidden, error: "Must complete OPRF stage before attempting BS-SPEKE verification")
         }
+
+        req.logger.debug("b64V\t\(Vstring)")
                 
         let A = try _b64decode(auth.A)
-        req.logger.debug("\tA\t\(Data(A).hex)")
+        req.logger.debug("A\t\(Data(A).hex)")
 
         let V = try _b64decode(Vstring)
-        req.logger.debug("\tV\t\(Data(V).hex)")
+        req.logger.debug("V\t\(Data(V).hex)")
         let verifier = try _b64decode(auth.verifier)
-        req.logger.debug("cv\t\t\(Data(verifier).hex)")
+        req.logger.debug("cv\t\(Data(verifier).hex)")
         
         bss.deriveSharedKey(A: A, V: V)
         
@@ -349,9 +344,10 @@ struct BSSpekeAuthChecker: AuthChecker {
 
     func onSuccess(req: Request, authType: String, userId: String) async throws {
         guard authType == ENROLL_SAVE else {
-            req.logger.debug("BS-SPEKE: onEnroll() for non-\(ENROLL_SAVE) -- doing nothing")
+            req.logger.debug("BS-SPEKE: onSuccess() for \(authType) -- doing nothing")
             return
         }
+        req.logger.debug("BS-SPEKE: onSuccess() for \(authType) -- Saving new params")
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Can't enroll on a non-UIA request")
         }
@@ -371,7 +367,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         let alreadyEnrolled = try await isUserEnrolled(userId: userId, authType: LOGIN_VERIFY)
         if alreadyEnrolled {
             // The user is re-enrolling with a new password
-            req.logger.debug("BS-SPEKE: Finalizing re-enrollment for user [\(userId)]")
+            req.logger.debug("BS-SPEKE: Finalizing re-enrollment for user [\(userId)] with P = \(P) and V = \(V)")
             try await BSSpekeUser.query(on: req.db)
                                  .set(\.$curve, to: curve)
                                  .set(\.$P, to: P)
@@ -382,7 +378,7 @@ struct BSSpekeAuthChecker: AuthChecker {
         }
         else {
             // This is a new enrollment
-            req.logger.debug("BS-SPEKE: Finalizing new enrollment for user [\(userId)]")
+            req.logger.debug("BS-SPEKE: Finalizing new enrollment for user [\(userId)] with P = \(P) and V = \(V)")
             let dbRecord = BSSpekeUser(id: userId, curve: curve, P: P, V: V, phf: phfParams)
             try await dbRecord.create(on: req.db)
         }
