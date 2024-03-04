@@ -6,15 +6,13 @@ import AppStoreServerLibrary
 
 let APP_STORE_NOTIFICATION_PATH = "/_swiclops/subscriptions/apple/:version/notify"
 
-struct AppStoreNotificationHandler: EndpointHandler {
-    typealias Environment = AppStoreServerLibrary.Environment
-    typealias NotificationData = AppStoreServerLibrary.Data    // FFS Apple you could at least try to pick names that don't clash with Foundation
+typealias AppStoreNotificationHandler = AppleStoreKitV2SubscriptionChecker
 
-    var endpoints = [
-        Endpoint(.POST, APP_STORE_NOTIFICATION_PATH)
-    ]
-    var environment: Environment = .production
-    var verifiers: [String: SignedDataVerifier] = [:]
+extension AppleStoreKitV2SubscriptionChecker: EndpointHandler {
+
+    var endpoints: [Endpoint] {
+        [Endpoint(.POST, APP_STORE_NOTIFICATION_PATH)]
+    }
     
     func handle(req: Request) async throws -> Response {
         guard let body = try? req.content.decode(ResponseBodyV2.self)
@@ -44,15 +42,6 @@ struct AppStoreNotificationHandler: EndpointHandler {
         // If we're still here, then none of our verifiers could verify the signature
         req.logger.error("App Store notification: No verifier could verify signed payload")
         throw Abort(.internalServerError)
-    }
-
-    func getVerifier(bundleId: String, environment: Environment) -> SignedDataVerifier? {
-        if environment != self.environment {
-            return nil
-        } else {
-            return self.verifiers[bundleId]
-        }
-
     }
 
     func handleVerifiedPayload(_ payload: ResponseBodyV2DecodedPayload, for req: Request) async throws -> Response {

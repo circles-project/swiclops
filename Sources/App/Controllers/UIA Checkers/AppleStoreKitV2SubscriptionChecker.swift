@@ -15,6 +15,8 @@ let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscriptions.apple_storekit_v2"
 let PROVIDER_APPLE_STOREKIT2 = "apple_storekit_v2"
 
 struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
+    typealias Environment = AppStoreServerLibrary.Environment
+    typealias NotificationData = AppStoreServerLibrary.Data    // FFS Apple you could at least try to pick names that don't clash with Foundation
 
     var app: Application
 
@@ -52,7 +54,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         let products: [ProductInfo]
         
         let secret: String?
-        let environment: AppStoreServerLibrary.Environment
+        let environment: Environment
         
         let gracePeriodDays: UInt?
         
@@ -82,7 +84,11 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     }
     
     var certs: [Foundation.Data]
+    var environment: Environment {
+        config.environment
+    }
     var logger: Vapor.Logger
+    var verifiers: [String: SignedDataVerifier] = [:]
     
     // See https://developer.apple.com/videos/play/wwdc2021/10174
     // For StoreKit2 we need
@@ -144,7 +150,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         self.certs = config.certs.compactMap {
             let url = URL(fileURLWithPath: $0)
             
-            guard let data = try? Data(contentsOf: url)
+            guard let data = try? Foundation.Data(contentsOf: url)
             else {
                 logger.error("Failed to load data for \($0) from \(url)")
                 return nil
@@ -156,6 +162,22 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         }
         
         self.logger = logger
+
+        self.verifiers = [:]
+
+        for app in config.apps {
+            let bundleId = app.bundleId
+            if let verifier = try? SignedDataVerifier(rootCertificates: self.certs,
+                                              bundleId: app.bundleId,
+                                              appAppleId: app.appleId,
+                                              environment: config.environment,
+                                              enableOnlineChecks: true)
+            {
+                self.verifiers[bundleId] = verifier
+            } else {
+                self.logger.error("Failed to create signed data verifier for bundle id \(bundleId)")
+            }
+        }
     }
     
     func getSupportedAuthTypes() -> [String] {
@@ -169,7 +191,15 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             "product_ids": AnyCodable(self.config.productIds)
         ]
     }
-    
+
+    func getVerifier(bundleId: String, environment: Environment) -> SignedDataVerifier? {
+        if environment != self.environment {
+            return nil
+        } else {
+            return self.verifiers[bundleId]
+        }
+    }
+
     // MARK: check
     
     func check(req: Request, authType: String) async throws -> Bool {
@@ -193,11 +223,7 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
             throw MatrixError(status: .unauthorized, errcode: .invalidParam, error: "Invalid bundle id")
         }
                 
-        guard let verifier = try? SignedDataVerifier(rootCertificates: self.certs,
-                                                     bundleId: auth.bundleId,
-                                                     appAppleId: app.appleId,
-                                                     environment: config.environment,
-                                                     enableOnlineChecks: true)
+        guard let verifier = getVerifier(bundleId: app.bundleId, environment: config.environment)
         else {
             req.logger.error("Failed to initialize verifier")
             throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to initialize verifier")
