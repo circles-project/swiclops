@@ -129,7 +129,8 @@ struct EmailAuthChecker: AuthChecker {
                                                     .query(on: req.db)
                                                     .filter(\.$userId == userId)
                                                     .all()
-            let emailAddresses = emailAddressRecords.compactMap { censorEmailAddress($0.email) }
+            //let emailAddresses = emailAddressRecords.compactMap { censorEmailAddress($0.email) }
+            let emailAddresses = emailAddressRecords.compactMap { $0.email }
             
             return ["addresses": AnyCodable(emailAddresses)]
             
