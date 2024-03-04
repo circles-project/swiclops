@@ -199,6 +199,8 @@ struct UiaController: RouteCollection {
         case .init(.POST, "/register"),
              .init(.POST, "/account/auth"),
              .init(.POST, "/account/password"),
+             .init(.POST, "/account/email"),
+             .init(.POST, "/account/recovery"),
              .init(.POST, "/account/3pid/add"):
             req.logger.debug("UIA Controller: Running post-enrollment callbacks")
 
@@ -261,7 +263,7 @@ struct UiaController: RouteCollection {
                     req.logger.error("UIA Controller: Couldn't find checker for [\(stage)]")
                     throw Abort(.internalServerError)
                 }
-                try await module.onLoggedIn(req: req, userId: userId)
+                try await module.onLoggedIn(req: req, authType: stage, userId: userId)
                 req.logger.debug("UIA Controller: Back from .onLoggedIn() for \(stage)")
             }
             req.logger.debug("UIA Controller: Done with onLoggedIn()")
