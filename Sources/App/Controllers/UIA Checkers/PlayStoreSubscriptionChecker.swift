@@ -261,11 +261,7 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
                                  familyShared: false) // FIXME: Figure out how to tell if a Play Store subscription is family shared
     }
     
-    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
-        // Do nothing
-    }
-    
-    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
         // FIXME: Pull the subscription information out of the UIA session and save it to the database
         //   * Subscription product id
         //   * Identifier token
@@ -286,6 +282,14 @@ struct PlayStoreSubscriptionChecker: AuthChecker {
         }
         
         try await subscription.create(on: req.db)
+    }
+    
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
+    }
+    
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {

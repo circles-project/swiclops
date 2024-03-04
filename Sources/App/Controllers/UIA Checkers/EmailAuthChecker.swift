@@ -290,15 +290,20 @@ struct EmailAuthChecker: AuthChecker {
     }
     
     func onLoggedIn(req: Request, authType: String, userId: String) async throws {
-        // Do nothing
+        return try await onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        return try await onSuccess(req: req, authType: authType, userId: userId)
+    }
+    
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
+
         guard authType == EmailAuthChecker.ENROLL_SUBMIT_TOKEN else {
-            req.logger.debug("m.enroll.email: onEnroll() but authType is not \(EmailAuthChecker.ENROLL_SUBMIT_TOKEN) -- doing nothing")
+            req.logger.debug("m.enroll.email: onSuccess() but authType is not \(EmailAuthChecker.ENROLL_SUBMIT_TOKEN) -- doing nothing")
             return
         }
-        req.logger.debug("m.enroll.email: onEnroll()")
+        req.logger.debug("m.enroll.email: onSuccess()")
         
         // FIXME Save the user's email address in the database
         guard let uiaRequest = try? req.content.decode(UiaRequest.self) else {

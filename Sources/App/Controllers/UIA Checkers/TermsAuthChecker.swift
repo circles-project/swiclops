@@ -97,16 +97,18 @@ struct TermsAuthChecker: AuthChecker {
         try await dbRecords.create(on: req.db)
     }
     
-    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
         // Update the database with the fact that this user has accepted these terms
         // Use the AcceptedTerms model type for this
         try await self._updateDatabase(for: req, userId: userId)
     }
     
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
+    }
+    
     func onEnrolled(req: Request, authType: String, userId: String) async throws {
-        // Update the database with the fact that this user has accepted these terms
-        // Use the AcceptedTerms model type for this
-        try await self._updateDatabase(for: req, userId: userId)
+        try await onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {
