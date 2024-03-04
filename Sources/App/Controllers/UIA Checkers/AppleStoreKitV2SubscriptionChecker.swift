@@ -225,10 +225,10 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
                 
         guard let verifier = getVerifier(bundleId: app.bundleId, environment: config.environment)
         else {
-            req.logger.error("Failed to initialize verifier")
-            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to initialize verifier")
+            req.logger.error("Failed to get verifier for bundle \(app.bundleId) and environment \(config.environment)")
+            throw MatrixError(status: .internalServerError, errcode: .unknown, error: "Failed to get verifier")
         }
-        req.logger.debug("Initialized verifier with \(self.certs.count) certs")
+        req.logger.debug("Found verifier for bundle \(app.bundleId) and environment \(config.environment)")
 
         req.logger.debug("Attempting to verify and decode transaction")
         let verificationResult = await verifier.verifyAndDecodeTransaction(signedTransaction: auth.signedTransaction)

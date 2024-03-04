@@ -313,6 +313,15 @@ struct UiaController: RouteCollection {
             }
         }
 
+        // Also set up top-level routes for App Store server notifications
+        if let apple = self.checkers[AUTH_TYPE_APPSTORE_SUBSCRIPTION] as? AppleStoreKitV2SubscriptionChecker {
+            for endpoint in apple.endpoints {
+                routes.on(.POST, endpoint.pathComponents) { (req: Request) -> Response in
+                    try await apple.handle(req: req)
+                }
+            }
+        }
+
     }
 
     // MARK: _getNewSessionID
