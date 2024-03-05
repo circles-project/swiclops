@@ -481,15 +481,8 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
     }
     
     // FIXME: Maybe we need to make this a generic part of the AuthChecker protocol
-    func onSuccess(req: Request, userId: String) async throws {
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
         // Save the subscription in the database
-    }
-    
-    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
-        // Do nothing
-    }
-    
-    func onEnrolled(req: Request, authType: String, userId: String) async throws {
         guard let uiaRequest = try? req.content.decode(UiaRequest.self)
         else {
             throw MatrixError(status: .badRequest, errcode: .badJson, error: "Couldn't parse UIA request")
@@ -505,7 +498,14 @@ struct AppleStoreKitV2SubscriptionChecker: AuthChecker {
         }
         
         try await createSubscription(for: userId, making: req)
-
+    }
+    
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
+    }
+    
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func isUserEnrolled(userId: String, authType: String) async throws -> Bool {

@@ -37,6 +37,10 @@ struct DummyAuthChecker: AuthChecker {
         return true
     }
     
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
+        // Do nothing
+    }
+    
     func onLoggedIn(req: Request, authType: String, userId: String) async throws {
         // Do nothing
     }

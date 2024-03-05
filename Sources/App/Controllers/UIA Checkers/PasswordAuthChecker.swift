@@ -178,11 +178,7 @@ struct PasswordAuthChecker: AuthChecker {
         return true
     }
     
-    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
-        // Do nothing
-    }
-    
-    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+    func onSuccess(req: Request, authType: String, userId: String) async throws {
         req.logger.debug("PasswordAuthChecker.onEnrolled()")
         guard authType == PasswordAuthChecker.AUTH_TYPE_ENROLL else {
             req.logger.debug("PasswordAuthChecker.onEnroll but authType is not \(PasswordAuthChecker.AUTH_TYPE_ENROLL) -- doing nothing")
@@ -204,7 +200,15 @@ struct PasswordAuthChecker: AuthChecker {
         } else {
             req.logger.error("PasswordAuthChecker: Can't enroll user \(userId) because there is no digest in the UIA session")
             throw Abort(.internalServerError)
-        }
+        }    }
+    
+    
+    func onLoggedIn(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
+    }
+    
+    func onEnrolled(req: Request, authType: String, userId: String) async throws {
+        try await onSuccess(req: req, authType: authType, userId: userId)
     }
     
     func isUserEnrolled(userId: String, authType: String) async -> Bool {
