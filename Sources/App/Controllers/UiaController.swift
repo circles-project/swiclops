@@ -199,8 +199,9 @@ struct UiaController: RouteCollection {
         case .init(.POST, "/register"),
              .init(.POST, "/account/auth"),
              .init(.POST, "/account/password"),
-             .init(.POST, "/account/email"),
-             .init(.POST, "/account/recovery"),
+             .init(.POST, "/account/auth/password"),
+             .init(.POST, "/account/auth/email"),
+             .init(.POST, "/account/auth/recovery"),
              .init(.POST, "/account/3pid/add"):
             req.logger.debug("UIA Controller: Running post-enrollment callbacks")
 
