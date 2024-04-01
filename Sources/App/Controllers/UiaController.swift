@@ -122,7 +122,8 @@ struct UiaController: RouteCollection {
         // Set up our endpoint handlers, that take over after UIA is complete
         self.defaultProxyHandler = ProxyHandler(app: self.app)
         let loginHandler = LoginHandler(app: self.app,
-                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows)
+                                        flows: self.flows[.init(.POST, "/login")] ?? self.defaultFlows,
+                                        enablePassthru: config.passthruLegacyLogin ?? false)
         let accountAuthHandler = AccountAuthHandler(flows: self.flows[.init(.POST, "/account/auth")] ?? self.defaultFlows)
         let endpointHandlerModules: [EndpointHandler] = [
             loginHandler,

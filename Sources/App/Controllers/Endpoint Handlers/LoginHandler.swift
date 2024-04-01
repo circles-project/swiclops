@@ -38,14 +38,16 @@ struct LoginHandler: EndpointHandler {
     let app: Application
     let endpoints: [Endpoint]
     let flows: [UiaFlow]
+    let enablePassthru: Bool
 
-    init(app: Application, flows: [UiaFlow]) {
+    init(app: Application, flows: [UiaFlow], enablePassthru: Bool = false) {
         self.app = app
         self.endpoints = [
             .init(.GET, "/login"),
             .init(.POST, "/login"),
         ]
         self.flows = flows
+        self.enablePassthru = enablePassthru
     }
 
     func handle(req: Request) async throws -> Response {
@@ -85,8 +87,11 @@ struct LoginHandler: EndpointHandler {
         }
         var responseBody = LoginGetResponseUIA(flows: self.flows)
 
-        // Adding legacy m.login.password flow for passthru support
-        responseBody.flows.append(LegacyAuthFlow(type: "m.login.password"))
+        if self.enablePassthru {
+            // Adding legacy m.login.password flow for passthru support
+            responseBody.flows.append(LegacyAuthFlow(type: "m.login.password"))
+        }
+        
         return try await responseBody.encodeResponse(for: req)
     }
 
