@@ -10,7 +10,6 @@ import Foundation
 // A Dictionary that uses a DispatchQueue to synchronize access.
 // Can handle multiple readers in parallel, as long as there are
 // no writers.
-//public struct SynchronizedDictionary<Key, Value> where Key : Hashable {
 public struct DispatchQueueDictionary<Key, Value> where Key: Hashable {
     private var dict: [Key:Value]
     private var queue: DispatchQueue
@@ -35,7 +34,6 @@ public struct DispatchQueueDictionary<Key, Value> where Key: Hashable {
             }
         }
     }
-    
 }
 
 // ConcurrentDictionary
